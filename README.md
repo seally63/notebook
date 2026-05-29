@@ -1,97 +1,75 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Notebook
 
-# Getting Started
+A journal-first relationship & language companion. **Local-first** — on-device SQLite
+is the source of truth; the app works fully offline except for translation + TTS.
+Supabase is a sync layer. Bare React Native (TypeScript), iOS + Android.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+The design + behaviour contract lives in the separate design-handoff bundle
+(`ROUTING.md` is authoritative) — kept outside version control. The visual system is "Carbon".
 
-## Step 1: Start Metro
+---
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Stack
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+- **Bare React Native 0.85** (TypeScript), New Architecture
+- **@react-navigation** native-stack (push/modal) + bottom-tabs (the 3 home routes)
+- **react-native-svg** — the hand-drawn Icon set (ported verbatim, `currentColor`-driven)
+- **@op-engineering/op-sqlite** — on-device DB (source of truth) · *see Phase 0 notes*
+- **react-native-mmkv** — sync timestamps + Supabase session
+- **@react-native-community/netinfo** — connectivity awareness
+- **@supabase/supabase-js** — auth + Postgres + Storage + Edge Functions
+- **Geist / Geist Mono** — bundled (not network-loaded) via `react-native-asset`
 
-```sh
-# Using npm
-npm start
+## Setup
 
-# OR using Yarn
-yarn start
+```bash
+npm install
+# iOS pods (use brew CocoaPods; see Phase 0 notes on Ruby):
+LANG=en_US.UTF-8 pod install --project-directory=ios
+cp .env.example .env          # fill in Supabase URL + anon key (optional; app runs without)
 ```
 
-## Step 2: Build and run your app
+Backend: see [`supabase/README.md`](./supabase/README.md) for the SQL, RLS, Storage,
+and the two Edge Functions.
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+## Run
 
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```bash
+npm start                     # Metro
+# iOS  (simulator):  build the workspace in Xcode, or:
+xcodebuild -workspace ios/Notebook.xcworkspace -scheme Notebook -configuration Debug \
+  -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath ios/build build
+# Android:           npm run android   (needs Android SDK — Phase 0 notes)
 ```
 
-### iOS
+## Test
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+```bash
+npm test                      # jest — includes the sync engine unit tests
+npx tsc --noEmit              # typecheck
+node scripts/test-edge-functions.mjs   # smoke-test deployed Edge Functions
 ```
 
-Then, and every time you update your native dependencies, run:
+---
 
-```sh
-bundle exec pod install
-```
+## Build status — Phase 0 (Foundation)
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+What's now buildable:
 
-```sh
-# Using npm
-npm run ios
+- ✅ Bare RN TS app boots to the 3 home routes (**SEARCH · WRITE · LATELY**) via the
+  floating **Dock**; the back(`‹`)/close(`✕`) navigation contract works (incl. Android).
+- ✅ **Carbon theme** (`src/theme`) — typed port of the design tokens.
+- ✅ **Icon** set (`src/components/Icon.tsx`) — SVG paths copied verbatim, `currentColor`.
+- ✅ Shared chrome: `Dock` (§9), `ScreenHeader` (§10.1), `Screen` — real safe-area math.
+- ✅ **Geist + Geist Mono** bundled (static weights) and rendering.
+- ✅ **SQLite** initialised on start with migrations (`src/db`).
+- ✅ **Sync engine** (`src/sync`) — push/pull/last-write-wins/soft-delete/idempotent,
+  unit-tested with in-memory mocks (`__tests__/sync.test.ts`).
+- ✅ **NetInfo** wired; connectivity state global; sync triggers on "online".
+- ✅ **Supabase** schema + RLS + Storage SQL and both **Edge Functions** authored
+  (`supabase/`), ready to deploy.
 
-# OR using Yarn
-yarn ios
-```
+Placeholder screens stand in for the real journal/people/phrases UI (Phases 1–4).
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Project conventions, per-phase plan, and the full design contract live in the
+design-handoff bundle's `ROUTING.md` (not committed to this repo).

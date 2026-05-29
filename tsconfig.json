@@ -3,6 +3,6 @@
   "compilerOptions": {
     "types": ["jest"]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["**/node_modules", "**/Pods"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "App.tsx", "__tests__/**/*.ts"],
+  "exclude": ["**/node_modules", "**/Pods", "supabase", "docs", "ios", "android", "coverage"]
 }

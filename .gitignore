@@ -66,6 +66,13 @@ yarn-error.log
 # testing
 /coverage
 
+# local environment (secrets) — keep .env.example tracked
+.env
+.env.local
+
+# design handoff reference — kept locally for build reference, never committed
+docs/
+
 # Yarn
 .yarn/*
 !.yarn/patches

@@ -1,0 +1,10 @@
+# Web prototype references — not app source (do not lint)
+docs/
+
+# Supabase Edge Functions are Deno (different runtime/globals) — lint separately
+supabase/
+
+# build output
+ios/
+android/
+coverage/
