@@ -69,7 +69,22 @@ What's now buildable:
 - ✅ **Supabase** schema + RLS + Storage SQL and both **Edge Functions** authored
   (`supabase/`), ready to deploy.
 
-Placeholder screens stand in for the real journal/people/phrases UI (Phases 1–4).
+## Build status — Phase 1 (Core journal loop)
+
+- ✅ Auth screens **Welcome / SignIn / Register** (email + password, **skippable** — "use
+  without an account" enters local-first; sign-in back-fills local rows + activates sync).
+- ✅ **JournalList** (`/`) — NOTEBOOK header, TODAY block (resume draft / open today's
+  entry / start new — §8.4), recent entries with inline `[name]` refs + phrase line.
+- ✅ **/write** (one screen, two states) with full §8 autosave: 800ms debounce +
+  force-save on blur/background/nav-away; `SAVING… → DRAFT · SAVED hh:mm` heartbeat;
+  CANCEL → KEEP/DISCARD sheet; SAVE commits → `/entry/:id`. Android hardware back routes
+  through KEEP/DISCARD.
+- ✅ **JournalEntry** (`/entry/:id`) — read view with inline `[name]` refs + phrase
+  cards; EDIT → `/write` (edit mode, gated to text-only entries in P1).
+- ✅ Local-first data layer (`src/data/`): entries + drafts repositories, ref resolver,
+  current-user tracking; @/# pickers stubbed to a "next phase" sheet.
+
+Search / Lately / People / Phrases remain placeholders (Phases 2–4).
 
 Project conventions, per-phase plan, and the full design contract live in the
 design-handoff bundle's `ROUTING.md` (not committed to this repo).

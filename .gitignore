@@ -80,3 +80,6 @@ docs/
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+# Design handoff bundle (kept out of version control)
+.design-handoff/
