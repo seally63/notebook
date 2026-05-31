@@ -12,6 +12,9 @@ import { SignInScreen } from '../screens/SignInScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
 import { WriteScreen } from '../screens/WriteScreen';
 import { EntryScreen } from '../screens/EntryScreen';
+import { PeopleListScreen } from '../screens/PeopleListScreen';
+import { PersonDetailScreen } from '../screens/PersonDetailScreen';
+import { PersonNewScreen } from '../screens/PersonNewScreen';
 import { kv, KV } from '../lib/storage';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -26,6 +29,9 @@ export function RootNavigator() {
       <Stack.Screen name="Home" component={HomeTabs} />
       <Stack.Screen name="Compose" component={WriteScreen} />
       <Stack.Screen name="Entry" component={EntryScreen} />
+      <Stack.Screen name="People" component={PeopleListScreen} />
+      <Stack.Screen name="PersonDetail" component={PersonDetailScreen} />
+      <Stack.Screen name="PersonNew" component={PersonNewScreen} options={{ presentation: 'modal' }} />
     </Stack.Navigator>
   );
 }

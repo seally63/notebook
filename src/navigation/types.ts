@@ -16,10 +16,15 @@ export type RootStackParamList = {
   Register: undefined;
   // app
   Home: NavigatorScreenParams<HomeTabParamList>;
-  // compose: new/resume draft, or edit an entry. Named 'Compose' (not 'Write') to
-  // avoid colliding with the 'Write' home TAB (the dock leg).
-  Compose: { entryId?: string } | undefined;
+  // compose: a NEW entry / resume today's draft. Named 'Compose' (not 'Write') to avoid
+  // colliding with the 'Write' home TAB. Editing an existing entry is edit-on-tap on the
+  // Entry screen, not a separate compose launch.
+  Compose: undefined;
   Entry: { id: string };
+  // people library (no dock — reached via Search, Settings·LIBRARY, inline [name])
+  People: undefined;
+  PersonDetail: { id: string };
+  PersonNew: { id?: string } | undefined; // modal (close-X); id present = edit mode
 };
 
 declare global {

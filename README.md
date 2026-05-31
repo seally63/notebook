@@ -84,7 +84,32 @@ What's now buildable:
 - ✅ Local-first data layer (`src/data/`): entries + drafts repositories, ref resolver,
   current-user tracking; @/# pickers stubbed to a "next phase" sheet.
 
-Search / Lately / People / Phrases remain placeholders (Phases 2–4).
+## Build status — Phase 2 (People)
+
+- ✅ **Mention-aware compose editor** — the `@` button / typing `@` opens a live people
+  picker; selecting inserts an inline **accent `[name]` chip** bound to a real
+  `person_id`. Single `TextInput` driven by styled `<Text>` children (no extra dep);
+  tokens are atomic (editing one removes it). Reconciler is pure + unit-tested
+  (`__tests__/mentions.test.ts`, 21 cases). `#` still opens the Phase-3 stub.
+- ✅ **Inline create** (§5): typing an unknown name → "＋ New person · [name]" creates
+  them inline and tags the entry, no navigation.
+- ✅ **Same-name disambiguation**: picker + People rows show context; when names collide
+  and context is blank, fall back to a distinguishing line (`last seen 27 May` /
+  `added 31 May`) so two "Chloe"s are never identical (`src/lib/personHint.ts`).
+- ✅ **People library** — `PeopleList` (`/people`, search + A–Z sections + lang/phrase
+  count + last-mention), `PersonDetail` (`/people/:id` — identity, PHRASES, IN THE
+  JOURNAL → `/entry/:id`), `PersonQuickAdd` (`/people/new`, modal; also edit mode).
+- ✅ **Inline `[name]` taps → `/people/:id`** from the journal list + entry read view.
+- ✅ **`last_mention_at`** recomputed from the journal on every entry create/commit/edit.
+- ✅ **Edit-on-tap with a tappable read view**: a committed entry opens read-only (no EDIT
+  button). Tapping an inline `[name]` opens that person's screen (so you know *which*
+  Chloe); tapping the body text starts editing — cursor + keyboard up, header swaps to
+  CANCEL / SAVE; CANCEL while dirty offers KEEP / DISCARD CHANGES (§8.5). The compose +
+  edit editor is shared as `<ComposerBody>`. (Phrase entries stay read-only until Phase 3.)
+- ⏳ Interim **LIBRARY → All people** lives on Lately until Settings/Search land (Phase 4).
+- ℹ️ No schema change — `people` already carried `context` / `lang` / `last_mention_at`.
+
+Search / Lately / Phrases remain placeholders (Phases 3–4).
 
 Project conventions, per-phase plan, and the full design contract live in the
 design-handoff bundle's `ROUTING.md` (not committed to this repo).

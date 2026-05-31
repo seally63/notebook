@@ -38,3 +38,13 @@ export function rowDate(dateStr: string): { day: string; mon: string; wd: string
   const d = parseDate(dateStr);
   return { day: pad(d.getDate()), mon: MON_ABBR[d.getMonth()], wd: WD[d.getDay()] };
 }
+
+/** "27 May" — the People list / last-mention label. Accepts an ISO timestamp or
+ *  a YYYY-MM-DD date string; null/empty → null. */
+export function dayMonthLabel(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = iso.length <= 10 ? parseDate(iso) : new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const m = MON_ABBR[d.getMonth()]; // 'MAY'
+  return `${d.getDate()} ${m[0]}${m.slice(1).toLowerCase()}`; // '27 May'
+}

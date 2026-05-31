@@ -27,9 +27,10 @@ export const nodesToText = (nodes: BodyNode[]): string =>
 export const isEmptyBody = (nodes: BodyNode[]): boolean =>
   nodes.length === 0 || nodes.every((n) => n.type === 'text' && !n.text.trim());
 
-/** true if the body has person/phrase nodes — the Phase 1 plain-text editor can't
- *  represent these yet, so EDIT is gated on text-only entries until the rich editor. */
-export const hasRichNodes = (nodes: BodyNode[]): boolean => nodes.some((n) => n.type !== 'text');
+/** true if the body has phrase/phrase_stub nodes. The Phase 2 mention editor handles
+ *  text + person nodes, so editing is gated only on entries that contain PHRASES (P3). */
+export const hasPhraseNodes = (nodes: BodyNode[]): boolean =>
+  nodes.some((n) => n.type === 'phrase' || n.type === 'phrase_stub');
 
 export const mentionIds = (nodes: BodyNode[]): string[] =>
   nodes.filter((n): n is Extract<BodyNode, { type: 'person' }> => n.type === 'person').map((n) => n.person_id);

@@ -15,6 +15,10 @@ import { colors } from '../theme/tokens';
 import { text } from '../theme/typography';
 import { useAuth } from '../auth/AuthContext';
 
+// The LIBRARY block lands in Settings (§4 Settings·LIBRARY) in Phase 4. Until then it
+// lives here so the People/Phrases libraries are reachable (Search's BROWSE chips are
+// also a Phase 4 build). Phrases is shown but disabled until Phase 3.
+
 export function LatelyScreen() {
   const { clearance } = useDockLayout();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -34,6 +38,35 @@ export function LatelyScreen() {
           Who you’re thinking about, and who’s gone quiet. The 4-week calendar, carry-overs, and Settings
           arrive in Phase 4.
         </Text>
+
+        {/* LIBRARY — interim entry point to People/Phrases until Settings (Phase 4) */}
+        <View style={{ marginTop: 28, paddingTop: 18, borderTopWidth: 1, borderTopColor: colors.rule }}>
+          <Text style={[text.monoFieldLabel]}>LIBRARY</Text>
+          <Pressable
+            onPress={() => navigation.navigate('People')}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingVertical: 14,
+              borderBottomWidth: 1,
+              borderBottomColor: colors.ruleSoft,
+              opacity: pressed ? 0.6 : 1,
+            })}>
+            <Text style={[text.body, { color: colors.text }]}>All people</Text>
+            <Text style={[text.monoButton, { fontSize: 11, color: colors.accent }]}>OPEN ↗</Text>
+          </Pressable>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingVertical: 14,
+            }}>
+            <Text style={[text.body, { color: colors.mutedSoft }]}>All phrases</Text>
+            <Text style={[text.monoMicro, { fontSize: 10 }]}>PHASE 3</Text>
+          </View>
+        </View>
 
         {/* ACCOUNT — interim home for sign-in/out until Settings (Phase 4) */}
         <View style={{ marginTop: 28, paddingTop: 18, borderTopWidth: 1, borderTopColor: colors.rule }}>

@@ -3,8 +3,9 @@
 
 import { exec, selectAll } from '../db/sqlite';
 import type { BodyNode, EntryRow } from '../db/schema';
-import { parseNodes, serializeNodes } from './body';
+import { parseNodes, serializeNodes, mentionIds } from './body';
 import { getCurrentUserId } from './session';
+import { recomputeLastMention } from './people';
 import { newId } from '../lib/uuid';
 import { nowIso } from '../lib/time';
 import { triggerSync } from '../sync/runSync';
@@ -35,6 +36,16 @@ export async function getEntryForDate(date: string): Promise<ParsedEntry | undef
   return rows[0] ? parse(rows[0]) : undefined;
 }
 
+/** entries that mention a person (People-detail "IN THE JOURNAL"). Scans the nodes
+ *  JSON for the person node; cheap at local scale. */
+export async function entriesMentioning(personId: string): Promise<ParsedEntry[]> {
+  const rows = await selectAll<EntryRow>(
+    `SELECT * FROM entries WHERE deleted = 0 AND nodes LIKE ? ORDER BY date DESC, created_at DESC`,
+    [`%"person_id":"${personId}"%`],
+  );
+  return rows.map(parse);
+}
+
 /** 1-based chronological position of an entry (for the "ENTRY · 0NN" label) */
 export async function entryOrdinal(id: string): Promise<number> {
   const rows = await selectAll<{ n: number }>(
@@ -54,14 +65,17 @@ export async function createEntry(date: string, nodes: BodyNode[]): Promise<stri
     [id, getCurrentUserId(), date, serializeNodes(nodes), now, now],
   );
   triggerSync('entry-create');
+  await recomputeLastMention(mentionIds(nodes));
   return id;
 }
 
 export async function updateEntry(id: string, nodes: BodyNode[]): Promise<void> {
+  const prev = await getEntry(id); // capture old mentions so a removed person is re-evaluated
   await exec('UPDATE entries SET nodes = ?, updated_at = ?, synced = 0 WHERE id = ?', [
     serializeNodes(nodes),
     nowIso(),
     id,
   ]);
   triggerSync('entry-update');
+  await recomputeLastMention([...mentionIds(prev?.nodes ?? []), ...mentionIds(nodes)]);
 }
