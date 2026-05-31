@@ -4,8 +4,9 @@
 
 import { exec, selectAll } from '../db/sqlite';
 import type { BodyNode, DraftRow } from '../db/schema';
-import { parseNodes, serializeNodes } from './body';
+import { parseNodes, serializeNodes, mentionIds } from './body';
 import { getCurrentUserId } from './session';
+import { recomputeLastMention } from './people';
 import { newId } from '../lib/uuid';
 import { nowIso, todayDate } from '../lib/time';
 import { triggerSync } from '../sync/runSync';
@@ -71,5 +72,6 @@ export async function commitDraft(draftId: string, date: string, nodes: BodyNode
     throw e;
   }
   triggerSync('draft-commit');
+  await recomputeLastMention(mentionIds(nodes));
   return entryId;
 }

@@ -18,6 +18,14 @@ export async function listPhrases(): Promise<PhraseRow[]> {
   return selectAll<PhraseRow>('SELECT * FROM phrases WHERE deleted = 0 ORDER BY created_at DESC');
 }
 
+/** phrases tagged to a person (People-detail PHRASES section). */
+export async function listPhrasesForPerson(personId: string): Promise<PhraseRow[]> {
+  return selectAll<PhraseRow>(
+    'SELECT * FROM phrases WHERE for_person = ? AND deleted = 0 ORDER BY created_at DESC',
+    [personId],
+  );
+}
+
 export async function insertPhrase(p: {
   id?: string;
   en: string;

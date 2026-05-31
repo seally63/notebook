@@ -60,6 +60,8 @@ export function JournalListScreen() {
     else navigation.navigate('Compose');
   };
 
+  const openPerson = (pid: string) => navigation.navigate('PersonDetail', { id: pid });
+
   const today = todayDate();
   const todayNodes = todayEntry?.nodes ?? todayDraft?.nodes ?? null;
   const todayPhrase = todayEntry ? firstPhrase(todayEntry.nodes) : undefined;
@@ -96,7 +98,13 @@ export function JournalListScreen() {
           </View>
 
           {todayNodes ? (
-            <SnippetText nodes={todayNodes} people={refs.people} numberOfLines={4} style={{ color: colors.text }} />
+            <SnippetText
+              nodes={todayNodes}
+              people={refs.people}
+              numberOfLines={4}
+              style={{ color: colors.text }}
+              onPersonPress={openPerson}
+            />
           ) : (
             <Text style={[text.body, { color: colors.mutedSoft, lineHeight: 21 }]}>
               What happened today? Tap to write your first entry.
@@ -151,7 +159,13 @@ export function JournalListScreen() {
                 <Text style={[text.monoMicro, { fontSize: 10, color: colors.mutedSoft }]}>{rd.wd}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <SnippetText nodes={e.nodes} people={refs.people} numberOfLines={2} style={{ fontSize: 13, color: colors.textSoft }} />
+                <SnippetText
+                  nodes={e.nodes}
+                  people={refs.people}
+                  numberOfLines={2}
+                  style={{ fontSize: 13, color: colors.textSoft }}
+                  onPersonPress={openPerson}
+                />
                 {ph && (
                   <Text style={[text.monoMicro, { fontSize: 10, marginTop: 6, textTransform: 'none' }]} numberOfLines={1}>
                     <Text style={{ color: colors.accent }}>[{(ph.lang ?? '··').toUpperCase()}]</Text> {ph.en}

@@ -17,16 +17,25 @@ export function SnippetText({
   people,
   numberOfLines = 3,
   style,
+  onPersonPress,
 }: {
   nodes: BodyNode[];
   people: Record<string, PersonRow>;
   numberOfLines?: number;
   style?: TextStyle;
+  onPersonPress?: (id: string) => void;
 }) {
   const inline: React.ReactNode[] = [];
   nodes.forEach((n, i) => {
     if (n.type === 'text') inline.push(<Text key={i}>{n.text}</Text>);
-    else if (n.type === 'person') inline.push(<PersonRef key={i} name={people[n.person_id]?.name ?? '…'} />);
+    else if (n.type === 'person')
+      inline.push(
+        <PersonRef
+          key={i}
+          name={people[n.person_id]?.name ?? '…'}
+          onPress={onPersonPress ? () => onPersonPress(n.person_id) : undefined}
+        />,
+      );
   });
   return (
     <Text numberOfLines={numberOfLines} style={[textStyles.body, { lineHeight: 21 }, style]}>
