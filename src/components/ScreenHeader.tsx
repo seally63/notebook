@@ -37,8 +37,8 @@ export function ScreenHeader({ title, leading = 'back', onLeading, trailing, onT
           justifyContent: 'space-between',
           paddingHorizontal: 18,
         }}>
-        {/* leading 28px slot */}
-        <View style={{ width: 28, alignItems: 'flex-start' }}>
+        {/* leading slot (equal flex with trailing → title stays centered) */}
+        <View style={{ flex: 1, alignItems: 'flex-start' }}>
           {leading !== 'none' && (
             <Pressable
               onPress={onLeading}
@@ -52,12 +52,12 @@ export function ScreenHeader({ title, leading = 'back', onLeading, trailing, onT
         </View>
 
         {/* centered mono title */}
-        <Text numberOfLines={1} style={text.monoLabel}>
+        <Text numberOfLines={1} style={[text.monoLabel, { paddingHorizontal: 8 }]}>
           {title}
         </Text>
 
-        {/* trailing 28px slot */}
-        <View style={{ width: 28, alignItems: 'flex-end' }}>
+        {/* trailing slot */}
+        <View style={{ flex: 1, alignItems: 'flex-end' }}>
           {trailing != null && (
             <Pressable
               onPress={onTrailing}

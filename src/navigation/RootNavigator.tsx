@@ -1,23 +1,31 @@
-// Root native-stack: the home tabs + every pushed/modal screen (§1).
-// We render our own <ScreenHeader>, so the native header is always hidden. The
-// back(‹)/close(✕) contract is expressed by `presentation`: default = push,
-// 'modal' = modal (Android back dismisses modals correctly — §10.1).
+// Root native-stack: onboarding (auth) + the home tabs + pushed screens (§1).
+// We render our own chrome, so the native header is always hidden. Initial route is
+// gated on the local "onboarded" flag (set on sign-in / sign-up / skip) — the app is
+// local-first, so returning users land straight on the journal.
 
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from './types';
 import { HomeTabs } from './HomeTabs';
-import { DetailDemoScreen } from '../screens/DetailDemoScreen';
-import { ModalDemoScreen } from '../screens/ModalDemoScreen';
+import { WelcomeScreen } from '../screens/WelcomeScreen';
+import { SignInScreen } from '../screens/SignInScreen';
+import { RegisterScreen } from '../screens/RegisterScreen';
+import { WriteScreen } from '../screens/WriteScreen';
+import { EntryScreen } from '../screens/EntryScreen';
+import { kv, KV } from '../lib/storage';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
+  const initial = kv.getBoolean(KV.onboarded) ? 'Home' : 'Welcome';
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator initialRouteName={initial} screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Welcome" component={WelcomeScreen} />
+      <Stack.Screen name="SignIn" component={SignInScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="Home" component={HomeTabs} />
-      <Stack.Screen name="DetailDemo" component={DetailDemoScreen} />
-      <Stack.Screen name="ModalDemo" component={ModalDemoScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="Compose" component={WriteScreen} />
+      <Stack.Screen name="Entry" component={EntryScreen} />
     </Stack.Navigator>
   );
 }

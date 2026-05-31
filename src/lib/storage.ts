@@ -9,6 +9,7 @@ export const kv: MMKV = createMMKV({ id: 'notebook' });
 // Keys used across the app.
 export const KV = {
   lastPullAt: 'sync.lastPullAt', // ISO string — high-water mark for incremental pull
+  onboarded: 'app.onboarded', // user has entered the app (signed in or skipped)
 } as const;
 
 /**
