@@ -83,3 +83,6 @@ docs/
 
 # Design handoff bundle (kept out of version control)
 .design-handoff/
+
+# Supabase CLI scratch (from `supabase link`)
+supabase/.temp/

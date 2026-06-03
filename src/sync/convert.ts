@@ -19,6 +19,7 @@ const BOOL_COLS: Record<string, string[]> = {
 const JSON_COLS: Record<string, string[]> = {
   entries: ['nodes'],
   drafts: ['nodes'],
+  phrases: ['variants'],
 };
 
 export function toLocal(table: string, row: SyncRow): SyncRow {

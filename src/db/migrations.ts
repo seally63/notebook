@@ -82,6 +82,12 @@ export const MIGRATIONS: Migration[] = [
          ON drafts (COALESCE(user_id, ''), date) WHERE deleted = 0;`,
     ],
   },
+  {
+    // §12: gendered (male/female) translation variants — JSON array stored as TEXT,
+    // mirrors phrases.variants jsonb on Postgres. Default '[]' = no gendered forms.
+    version: 2,
+    statements: [`ALTER TABLE phrases ADD COLUMN variants TEXT NOT NULL DEFAULT '[]';`],
+  },
 ];
 
 export const LATEST_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;

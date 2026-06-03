@@ -4,7 +4,7 @@
 // → /entry/:id. The ⋯ menu offers "Edit details" → /people/new in edit mode.
 
 import React, { useCallback, useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/types';
@@ -12,11 +12,12 @@ import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { Icon } from '../components/Icon';
 import { Sheet } from '../components/Sheet';
+import { PlayButton } from '../components/PlayButton';
 import { colors, radius, fonts, tracking } from '../theme/tokens';
 import { text } from '../theme/typography';
 import { rowDate } from '../lib/format';
 import { langShort, langName } from '../lib/lang';
-import { getPerson, personOrdinal } from '../data/people';
+import { getPerson, personOrdinal, deletePerson } from '../data/people';
 import { listPhrasesForPerson } from '../data/phrases';
 import { entriesMentioning, type ParsedEntry } from '../data/entries';
 import { resolveRefs, type ResolvedRefs } from '../data/resolve';
@@ -33,6 +34,22 @@ export function PersonDetailScreen({ route, navigation }: Props) {
   const [entries, setEntries] = useState<ParsedEntry[]>([]);
   const [refs, setRefs] = useState<ResolvedRefs>({ people: {}, phrases: {} });
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const onDelete = () => {
+    setMenuOpen(false);
+    const name = person?.name ?? 'this person';
+    Alert.alert(`Delete ${name}?`, 'They’ll be removed from your People list. Past entries keep their text.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await deletePerson(id);
+          navigation.goBack();
+        },
+      },
+    ]);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -99,47 +116,49 @@ export function PersonDetailScreen({ route, navigation }: Props) {
           )}
 
           {/* phrases */}
-          <SectionLabel label="PHRASES" trailing={phrases.length > 0 ? `${phrases.length}${short ? ` · ${short}` : ''}` : undefined} />
+          <SectionLabel
+            label="PHRASES"
+            trailing="+ ADD"
+            onTrailing={() => navigation.navigate('PhraseNew', { personId: id })}
+          />
           {phrases.length === 0 ? (
             <Text style={[text.monoMicro, { fontSize: 10, color: colors.mutedSoft, paddingVertical: 10, textTransform: 'none' }]}>
-              No phrases yet — adding phrases for {person.name} arrives in the next phase.
+              No phrases yet — tap + ADD to make one for {person.name}.
             </Text>
           ) : (
-            phrases.map((ph) => (
-              <View
-                key={ph.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 8,
-                  paddingVertical: 10,
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.ruleSoft,
-                }}>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[text.body, { fontSize: 13 }]} numberOfLines={1}>
-                    {ph.en}
-                  </Text>
-                  {!!ph.tgt && (
-                    <Text style={{ fontFamily: fonts.mono.regular, fontSize: 11, color: colors.muted, marginTop: 2 }} numberOfLines={1}>
-                      {ph.tgt}
-                    </Text>
-                  )}
-                </View>
-                <View
-                  style={{
-                    width: 24,
-                    height: 24,
-                    borderRadius: radius.sm,
-                    borderWidth: 1,
-                    borderColor: colors.rule,
+            <>
+              {phrases.map((ph) => (
+                <Pressable
+                  key={ph.id}
+                  onPress={() => navigation.navigate('Phrases', { personId: id })}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                  }}>
-                  <Icon name="play" size={8} color={colors.textSoft} />
-                </View>
-              </View>
-            ))
+                    gap: 8,
+                    paddingVertical: 10,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.ruleSoft,
+                    opacity: pressed ? 0.6 : 1,
+                  })}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={[text.body, { fontSize: 13 }]} numberOfLines={1}>
+                      {ph.en}
+                    </Text>
+                    <Text
+                      style={{ fontFamily: fonts.mono.regular, fontSize: 11, color: colors.muted, marginTop: 2 }}
+                      numberOfLines={1}>
+                      {ph.pending_translation && !ph.tgt ? 'translating…' : ph.tgt ?? '—'}
+                    </Text>
+                  </View>
+                  <PlayButton audioRef={ph.audio_ref} pending={!!ph.pending_audio && !ph.audio_ref} />
+                </Pressable>
+              ))}
+              {phrases.length >= 3 && (
+                <Pressable onPress={() => navigation.navigate('PhrasePractice', { personId: id })} style={{ paddingVertical: 12 }}>
+                  <Text style={[text.monoButton, { fontSize: 11, color: colors.accent }]}>PRACTISE ↗</Text>
+                </Pressable>
+              )}
+            </>
           )}
 
           {/* in the journal */}
@@ -173,6 +192,7 @@ export function PersonDetailScreen({ route, navigation }: Props) {
                     <SnippetText
                       nodes={e.nodes}
                       people={refs.people}
+                      phrases={refs.phrases}
                       numberOfLines={2}
                       style={{ fontSize: 12.5, color: colors.textSoft }}
                     />
@@ -195,6 +215,12 @@ export function PersonDetailScreen({ route, navigation }: Props) {
           <Text style={[text.body]}>Edit details</Text>
           <Text style={[text.monoMicro, { fontSize: 10, marginTop: 2, textTransform: 'none' }]}>name & context</Text>
         </Pressable>
+        <Pressable
+          onPress={onDelete}
+          style={{ paddingHorizontal: 16, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: colors.ruleSoft }}>
+          <Text style={[text.body, { color: colors.accent }]}>Delete person</Text>
+          <Text style={[text.monoMicro, { fontSize: 10, marginTop: 2, textTransform: 'none' }]}>removes them from People</Text>
+        </Pressable>
         <Pressable onPress={() => setMenuOpen(false)} style={{ paddingHorizontal: 16, paddingVertical: 15 }}>
           <Text style={[text.monoButton, { fontSize: 11, color: colors.muted }]}>CANCEL</Text>
         </Pressable>
@@ -203,7 +229,7 @@ export function PersonDetailScreen({ route, navigation }: Props) {
   );
 }
 
-function SectionLabel({ label, trailing }: { label: string; trailing?: string }) {
+function SectionLabel({ label, trailing, onTrailing }: { label: string; trailing?: string; onTrailing?: () => void }) {
   return (
     <View
       style={{
@@ -216,7 +242,14 @@ function SectionLabel({ label, trailing }: { label: string; trailing?: string })
         borderBottomColor: colors.rule,
       }}>
       <Text style={[text.monoFieldLabel]}>{label}</Text>
-      {!!trailing && <Text style={[text.monoMicro, { fontSize: 10 }]}>{trailing}</Text>}
+      {!!trailing &&
+        (onTrailing ? (
+          <Pressable onPress={onTrailing} hitSlop={8}>
+            <Text style={[text.monoButton, { fontSize: 10, color: colors.accent }]}>{trailing}</Text>
+          </Pressable>
+        ) : (
+          <Text style={[text.monoMicro, { fontSize: 10 }]}>{trailing}</Text>
+        ))}
     </View>
   );
 }

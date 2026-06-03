@@ -10,6 +10,7 @@
 import React, { useMemo } from 'react';
 import { View, Text, Pressable, ScrollView } from 'react-native';
 import type { PersonRow } from '../db/schema';
+import { Icon } from './Icon';
 import { colors, radius, fonts, shadows } from '../theme/tokens';
 import { text } from '../theme/typography';
 import { langShort } from '../lib/lang';
@@ -28,6 +29,7 @@ export function MentionPicker({
   bottom,
   onSelect,
   onCreate,
+  onClose,
 }: {
   visible: boolean;
   query: string;
@@ -35,6 +37,7 @@ export function MentionPicker({
   bottom: number;
   onSelect: (person: PersonRow) => void;
   onCreate: (name: string) => void;
+  onClose: () => void;
 }) {
   const q = query.trim();
   const filtered = useMemo(() => people.filter((p) => matches(p, q)), [people, q]);
@@ -119,9 +122,14 @@ export function MentionPicker({
         <Text style={[text.monoLabel, { fontSize: 10 }]}>
           <Text style={{ color: colors.accent }}>@ </Text>MENTION SOMEONE
         </Text>
-        <Text style={[text.monoMicro, { fontSize: 10, textTransform: 'none' }]}>
-          {q ? <Text style={{ color: colors.accent }}>{q}</Text> : <Text style={{ color: colors.mutedSoft }}>type to filter</Text>}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={[text.monoMicro, { fontSize: 10, textTransform: 'none' }]} numberOfLines={1}>
+            {q ? <Text style={{ color: colors.accent }}>{q}</Text> : <Text style={{ color: colors.mutedSoft }}>type a name</Text>}
+          </Text>
+          <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Close mention picker">
+            <Icon name="close" size={14} color={colors.muted} />
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView keyboardShouldPersistTaps="always" style={{ flexGrow: 0 }}>

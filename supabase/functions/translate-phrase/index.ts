@@ -12,31 +12,36 @@ import { corsHeaders, json } from '../_shared/cors.ts';
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 const MODEL = 'claude-haiku-4-5-20251001';
 
-// System message — verbatim from the §12 build spec.
-const SYSTEM = `You translate short conversational phrases for an English speaker
-learning to talk to colleagues in their native language. Return
-ONLY valid JSON matching this schema:
+// System message (§12). Translates faithfully — NO register editorialising, NO suggesting
+// "less crude" alternatives. When the phrase changes form by the SPEAKER's gender (common
+// in Slavic past tense / adjectives), it returns both forms as `variants`.
+const SYSTEM = `You translate short conversational phrases for an English speaker learning
+to speak a language (Polish, Ukrainian, or Russian). Return ONLY valid JSON:
 
 {
-  "tgt": string,           // the phrase in the target language's
-                           // native script (Cyrillic for Russian/
-                           // Ukrainian, Latin for Polish)
+  "tgt": string,            // the phrase in native script (Cyrillic for ru/uk, Latin for pl).
+                            // Use the masculine speaker form here if the phrase is gendered.
   "tgt_romanised": string | null,
-                           // Latin-script transliteration of tgt;
-                           // null for Polish (already Latin)
-  "register": "informal" | "neutral" | "formal",
-                           // the register chosen — phrases for
-                           // workmates should default to "informal"
-  "note": string | null    // optional one-line usage note when the
-                           // English is ambiguous; null otherwise
+                            // Latin transliteration of tgt; null for Polish (already Latin).
+  "register": "informal" | "neutral" | "formal",  // the register you actually used.
+  "variants": [             // ONLY when the phrase changes with the SPEAKER's gender
+                            // (e.g. past-tense verbs, adjectives). Omit or use [] otherwise.
+    { "gender": "male",   "tgt": string, "romanised": string | null },
+    { "gender": "female", "tgt": string, "romanised": string | null }
+  ],
+  "note": string | null     // a SHORT neutral grammar note ONLY if needed to use the forms
+                            // (e.g. "past tense changes with speaker's gender"). Else null.
 }
 
 Rules:
-- Choose the most natural workplace phrasing, not a literal
-  word-for-word translation.
-- Default to informal register for peers/colleagues unless the
-  provided context says otherwise.
-- No commentary outside the JSON.`;
+- Translate FAITHFULLY and literally in tone. Preserve slang, profanity, and crudeness
+  EXACTLY as written — never soften, censor, or suggest a politer alternative. The user's
+  wording is deliberate.
+- Choose the most natural phrasing for the meaning; default to informal register.
+- Gender = the GENDER OF THE SPEAKER (the person saying it), not who they're talking to.
+  Only populate "variants" when the two forms genuinely differ; otherwise omit it.
+- "note" is for grammar only, never for register/politeness commentary or alternatives.
+- No text outside the JSON.`;
 
 // Pull the first JSON object out of the model's text (handles ```json fences).
 function extractJson(text: string): any {
@@ -88,10 +93,21 @@ Deno.serve(async (req) => {
     const text = data?.content?.[0]?.text ?? '';
     const parsed = extractJson(text);
 
+    // normalise variants → [{gender, tgt, romanised}] for male/female, only if both differ
+    let variants: Array<{ gender: string; tgt: string; romanised: string | null }> = [];
+    if (Array.isArray(parsed.variants)) {
+      variants = parsed.variants
+        .filter((v: any) => v && v.tgt && (v.gender === 'male' || v.gender === 'female'))
+        .map((v: any) => ({ gender: v.gender, tgt: String(v.tgt), romanised: v.romanised ?? null }));
+      const uniqueForms = new Set(variants.map((v) => v.tgt));
+      if (variants.length < 2 || uniqueForms.size < 2) variants = []; // not actually gendered
+    }
+
     return json({
       tgt: parsed.tgt ?? null,
       tgt_romanised: parsed.tgt_romanised ?? null,
       register: parsed.register ?? 'neutral',
+      variants,
       note: parsed.note ?? null,
     });
   } catch (e) {

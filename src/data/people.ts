@@ -87,6 +87,13 @@ export async function updatePerson(
   triggerSync('person-update');
 }
 
+/** Soft-delete a person. Their inline [name] refs in past entries still render (the name
+ *  is stored on the node-resolve fallback); only the People library entry goes away. */
+export async function deletePerson(id: string): Promise<void> {
+  await exec('UPDATE people SET deleted = 1, updated_at = ?, synced = 0 WHERE id = ?', [nowIso(), id]);
+  triggerSync('person-delete');
+}
+
 /**
  * Recompute last_mention_at for the given people from the journal: the created_at of the
  * most recent (by date, then created_at) non-deleted entry that mentions them, or null if
