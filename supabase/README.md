@@ -28,7 +28,7 @@ Two functions proxy the paid APIs so **no API key ever ships in the app bundle**
 | Function | Proxies to | Secret it needs |
 |---|---|---|
 | `translate-phrase` | Anthropic (Claude Haiku 4.5) | `ANTHROPIC_API_KEY` |
-| `synthesise-phrase` | Google Cloud TTS (Wavenet) | `GOOGLE_TTS_SERVICE_ACCOUNT` |
+| `synthesise-phrase` | Google Cloud TTS (Wavenet) | `GOOGLE_TTS_API_KEY` |
 
 Deploy + set secrets (Supabase CLI):
 
@@ -38,12 +38,15 @@ supabase functions deploy translate-phrase
 supabase functions deploy synthesise-phrase
 
 supabase secrets set ANTHROPIC_API_KEY='sk-ant-...'
-# the WHOLE service-account JSON, single-quoted:
-supabase secrets set GOOGLE_TTS_SERVICE_ACCOUNT='{"type":"service_account","project_id":"...","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n","client_email":"...","token_uri":"https://oauth2.googleapis.com/token"}'
+supabase secrets set GOOGLE_TTS_API_KEY='AIza...'
 ```
 
-> The Google service account needs the **Cloud Text-to-Speech API** enabled on its
-> project and at least the *Cloud Text-to-Speech User* role.
+> **Google TTS auth — API key, not a service account.** Newer Google Cloud orgs enforce
+> the "Secure by Default" policy `iam.disableServiceAccountKeyCreation`, which blocks
+> service-account *key* downloads. Cloud TTS supports API-key auth on `text:synthesize`,
+> so we use a plain API key instead (simpler — no JSON, no JWT). Create it under
+> **APIs & Services → Credentials → Create credentials → API key**, then restrict it to
+> the **Cloud Text-to-Speech API** (the API must also be **Enabled** on the project).
 
 ### Contracts
 

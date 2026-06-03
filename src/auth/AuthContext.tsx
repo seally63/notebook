@@ -3,6 +3,7 @@
 // works against local SQLite; sign-in activates sync and back-fills local rows.
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabase, isSupabaseConfigured } from '../services/supabase';
 import { setCurrentUserId } from '../data/session';
@@ -52,7 +53,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         backfillLocalUserId(s.user.id).then(() => triggerSync('signed-in'));
       }
     });
-    return () => sub.subscription.unsubscribe();
+
+    // RN gotcha: autoRefreshToken only ticks while we tell the client the app is in focus.
+    // Without this, the access token expires (~1h) and never refreshes, so Edge Function
+    // calls 401. Drive start/stop off AppState; refresh immediately on foreground.
+    sb.auth.startAutoRefresh();
+    const appSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        sb.auth.startAutoRefresh();
+        sb.auth.getSession(); // proactively refresh a stale token on resume
+      } else {
+        sb.auth.stopAutoRefresh();
+      }
+    });
+
+    return () => {
+      sub.subscription.unsubscribe();
+      appSub.remove();
+      sb.auth.stopAutoRefresh();
+    };
   }, [apply]);
 
   const signUp = useCallback<AuthApi['signUp']>(async (email, password, name) => {

@@ -25,17 +25,25 @@ export interface PersonRow extends SyncMeta {
 
 export type Register = 'informal' | 'neutral' | 'formal';
 
+// A gendered translation form (§12): the phrase as a male vs female SPEAKER would say it.
+export interface PhraseVariant {
+  gender: 'male' | 'female';
+  tgt: string;
+  romanised: string | null;
+}
+
 export interface PhraseRow extends SyncMeta {
   id: string;
   user_id: string | null;
   en: string; // the only required user input (§12)
-  tgt: string | null; // auto-translated; null while pending
+  tgt: string | null; // auto-translated; null while pending. (masculine form if gendered)
   tgt_romanised: string | null; // transliteration; null for Polish
   register: Register | null;
   note: string | null; // optional usage note from translation
   lang: string | null; // BCP-47, inferred from for_person.lang
   for_person: string | null; // FK -> people.id
   audio_ref: string | null; // uuid → local cache + Storage key
+  variants: string; // JSON.stringify(PhraseVariant[]); '[]' = no gendered forms
   tgt_edited: Bool; // §12.2 manual override flag
   pending_translation: Bool; // offline-create flag
   pending_audio: Bool; // offline-create flag

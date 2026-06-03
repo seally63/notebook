@@ -13,6 +13,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, AppState } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Sheet } from '../components/Sheet';
@@ -21,25 +22,28 @@ import { colors, radius, fonts } from '../theme/tokens';
 import { text } from '../theme/typography';
 import { todayDate } from '../lib/time';
 import { composeStamp, formatTime } from '../lib/format';
-import { type InputState, nodesToInput, inputToNodes } from '../data/mentions';
+import { type InputState, nodesToInput, inputToNodes, resolvePhraseStubs } from '../data/mentions';
 import { getTodayDraft, saveDraft, deleteDraft, commitDraft } from '../data/drafts';
 import { createEntry } from '../data/entries';
+import { getPhrase } from '../data/phrases';
 import { resolveRefs } from '../data/resolve';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Compose'>;
 type SaveState = 'idle' | 'saving' | 'saved';
 
+/** chips are inline in the text now, so any non-whitespace text counts as content (§8.2). */
+const hasContent = (s: InputState): boolean => s.text.trim().length > 0;
+
 export function WriteScreen({ navigation }: Props) {
-  const [body, setBody] = useState<InputState>({ text: '', mentions: [] });
+  const [body, setBody] = useState<InputState>({ text: '', tokens: [] });
   const [date] = useState(todayDate());
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [stubOpen, setStubOpen] = useState(false);
   const [ready, setReady] = useState(false);
 
-  const bodyRef = useRef<InputState>({ text: '', mentions: [] });
+  const bodyRef = useRef<InputState>({ text: '', tokens: [] });
   const draftIdRef = useRef<string | null>(null);
   const allowLeaveRef = useRef(false);
   const pendingActionRef = useRef<any>(null);
@@ -57,7 +61,7 @@ export function WriteScreen({ navigation }: Props) {
       if (d) {
         draftIdRef.current = d.id;
         const refs = await resolveRefs([d.nodes]);
-        const state = nodesToInput(d.nodes, (id) => refs.people[id]?.name);
+        const state = nodesToInput(d.nodes, (id) => refs.people[id]?.name, (phid) => refs.phrases[phid]?.en);
         setBodyState(state);
         stampRef.current = new Date(d.created_at);
         if (state.text.trim()) {
@@ -69,8 +73,32 @@ export function WriteScreen({ navigation }: Props) {
     })();
   }, [setBodyState]);
 
+  // §5 stub resolve: on focus (e.g. returning from ＋NEW PHRASE) upgrade any in-text
+  // phrase_stub whose local_id now exists as a real phrase — a robust DB lookup, not a
+  // navigation param. Persists the draft so the resolved chip survives.
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      (async () => {
+        const stubs = bodyRef.current.tokens.filter((t) => t.kind === 'phrase_stub');
+        if (stubs.length === 0) return;
+        const enById: Record<string, string | undefined> = {};
+        for (const s of stubs) if (s.kind === 'phrase_stub') enById[s.localId] = (await getPhrase(s.localId))?.en;
+        if (!alive) return;
+        const next = resolvePhraseStubs(bodyRef.current, (pid) => enById[pid]);
+        if (next === bodyRef.current) return;
+        setBodyState(next);
+        setTouched(true);
+        await saveDraft(date, inputToNodes(next));
+      })();
+      return () => {
+        alive = false;
+      };
+    }, [date, setBodyState]),
+  );
+
   const persistDraft = useCallback(async () => {
-    if (!bodyRef.current.text.trim()) return;
+    if (!hasContent(bodyRef.current)) return;
     const id = await saveDraft(date, inputToNodes(bodyRef.current));
     draftIdRef.current = id;
   }, [date]);
@@ -78,7 +106,7 @@ export function WriteScreen({ navigation }: Props) {
   // ── debounced autosave (§8.2) ─────────────────────────────────────────
   useEffect(() => {
     if (!touched) return;
-    if (!body.text.trim()) {
+    if (!hasContent(body)) {
       setSaveState('idle');
       return;
     }
@@ -107,7 +135,7 @@ export function WriteScreen({ navigation }: Props) {
     () =>
       navigation.addListener('beforeRemove', (e) => {
         if (allowLeaveRef.current) return;
-        if (!bodyRef.current.text.trim()) return; // nothing to keep → leave silently
+        if (!hasContent(bodyRef.current)) return; // nothing to keep → leave silently
         e.preventDefault();
         pendingActionRef.current = e.data.action;
         setCancelOpen(true);
@@ -133,7 +161,7 @@ export function WriteScreen({ navigation }: Props) {
   };
 
   const onSave = async () => {
-    if (!bodyRef.current.text.trim()) return;
+    if (!hasContent(bodyRef.current)) return;
     const nodes = inputToNodes(bodyRef.current);
     allowLeaveRef.current = true;
     const id = draftIdRef.current
@@ -147,8 +175,15 @@ export function WriteScreen({ navigation }: Props) {
     setBodyState(next);
   };
 
+  // §5: "＋ NEW PHRASE" inserted a stub — autosave the draft (so text survives the trip),
+  // then open /phrases/new; the resolveStub param swaps the stub on return.
+  const onCreatePhrase = async (stubLocalId: string, en: string) => {
+    await persistDraft();
+    navigation.navigate('PhraseNew', { stubLocalId, en });
+  };
+
   const stamp = composeStamp(date, formatTime(stampRef.current));
-  const empty = !body.text.trim();
+  const empty = !hasContent(body);
   const heartbeatVisible = saveState !== 'idle';
 
   return (
@@ -203,7 +238,7 @@ export function WriteScreen({ navigation }: Props) {
 
       {/* shared mention editor */}
       {ready && (
-        <ComposerBody value={body} onChange={onChange} autoFocus onRequestPhrase={() => setStubOpen(true)}>
+        <ComposerBody value={body} onChange={onChange} autoFocus onCreatePhrase={onCreatePhrase}>
           {!touched && empty && (
             <View style={{ marginTop: 8, padding: 12, backgroundColor: colors.accentSoft, borderRadius: radius.sm }}>
               <Text style={{ fontFamily: fonts.mono.regular, fontSize: 10, color: colors.textSoft, lineHeight: 17, letterSpacing: 0.4 }}>
@@ -239,17 +274,6 @@ export function WriteScreen({ navigation }: Props) {
         <Pressable onPress={onDiscard} style={{ paddingHorizontal: 14, paddingVertical: 14 }}>
           <Text style={[text.monoButton, { color: colors.accent, fontSize: 11.5 }]}>DISCARD DRAFT</Text>
         </Pressable>
-      </Sheet>
-
-      {/* # phrase picker stub — real phrase picker arrives in Phase 3 */}
-      <Sheet visible={stubOpen} onClose={() => setStubOpen(false)}>
-        <View style={{ padding: 18 }}>
-          <Text style={[text.monoLabel, { color: colors.accent }]}># ATTACH A PHRASE</Text>
-          <Text style={[text.body, { color: colors.textSoft, marginTop: 8, lineHeight: 20 }]}>
-            The phrase picker (with auto-translation + audio) arrives in the next phase. For now, write freely
-            and mention people with @ — your draft is autosaving.
-          </Text>
-        </View>
       </Sheet>
     </Screen>
   );

@@ -56,16 +56,18 @@ export function LatelyScreen() {
             <Text style={[text.body, { color: colors.text }]}>All people</Text>
             <Text style={[text.monoButton, { fontSize: 11, color: colors.accent }]}>OPEN ↗</Text>
           </Pressable>
-          <View
-            style={{
+          <Pressable
+            onPress={() => navigation.navigate('Phrases')}
+            style={({ pressed }) => ({
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
               paddingVertical: 14,
-            }}>
-            <Text style={[text.body, { color: colors.mutedSoft }]}>All phrases</Text>
-            <Text style={[text.monoMicro, { fontSize: 10 }]}>PHASE 3</Text>
-          </View>
+              opacity: pressed ? 0.6 : 1,
+            })}>
+            <Text style={[text.body, { color: colors.text }]}>All phrases</Text>
+            <Text style={[text.monoButton, { fontSize: 11, color: colors.accent }]}>OPEN ↗</Text>
+          </Pressable>
         </View>
 
         {/* ACCOUNT — interim home for sign-in/out until Settings (Phase 4) */}

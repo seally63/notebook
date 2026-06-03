@@ -19,6 +19,8 @@ import { phraseIds } from '../data/body';
 import { listEntries, getEntryForDate, type ParsedEntry } from '../data/entries';
 import { getTodayDraft, type ParsedDraft } from '../data/drafts';
 import { resolveRefs, type ResolvedRefs } from '../data/resolve';
+import { langShort } from '../lib/lang';
+import { playAudio } from '../services/player';
 import type { PhraseRow } from '../db/schema';
 
 export function JournalListScreen() {
@@ -101,6 +103,7 @@ export function JournalListScreen() {
             <SnippetText
               nodes={todayNodes}
               people={refs.people}
+              phrases={refs.phrases}
               numberOfLines={4}
               style={{ color: colors.text }}
               onPersonPress={openPerson}
@@ -126,13 +129,15 @@ export function JournalListScreen() {
               }}>
               <View style={{ backgroundColor: colors.accent, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 }}>
                 <Text style={{ fontFamily: 'GeistMono-Regular', fontSize: 9, color: colors.surface, letterSpacing: 1 }}>
-                  {(todayPhrase.lang ?? '··').toUpperCase()}
+                  {langShort(todayPhrase.lang) ?? '··'}
                 </Text>
               </View>
               <Text style={[text.monoMicro, { fontSize: 10.5, color: colors.textSoft, textTransform: 'none', flex: 1 }]} numberOfLines={1}>
                 {todayPhrase.en}
               </Text>
-              <Icon name="play" size={10} color={colors.muted} />
+              <Pressable onPress={() => playAudio(todayPhrase.audio_ref)} hitSlop={10} disabled={!todayPhrase.audio_ref}>
+                <Icon name="play" size={10} color={todayPhrase.audio_ref ? colors.text : colors.mutedSoft} />
+              </Pressable>
             </View>
           )}
         </Pressable>
@@ -162,6 +167,7 @@ export function JournalListScreen() {
                 <SnippetText
                   nodes={e.nodes}
                   people={refs.people}
+                  phrases={refs.phrases}
                   numberOfLines={2}
                   style={{ fontSize: 13, color: colors.textSoft }}
                   onPersonPress={openPerson}

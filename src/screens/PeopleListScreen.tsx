@@ -1,9 +1,10 @@
 // /people — the People library (notebook-people.jsx → PeopleList). No dock; reached via
 // Search, Settings·LIBRARY, and inline [name] taps. Header "PEOPLE · NN" + "+ NEW".
-// Live name/context filter, alphabetical letter sections, rows → /people/:id.
+// Live name/context filter, alphabetical letter sections, rows → /people/:id;
+// LONG-PRESS a row → delete that person.
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, Alert } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/types';
@@ -15,7 +16,7 @@ import { text } from '../theme/typography';
 import { dayMonthLabel } from '../lib/format';
 import { langShort } from '../lib/lang';
 import { personHint, duplicateNameSet } from '../lib/personHint';
-import { listPeople } from '../data/people';
+import { listPeople, deletePerson } from '../data/people';
 import { listPhrases } from '../data/phrases';
 import type { PersonRow } from '../db/schema';
 
@@ -26,22 +27,39 @@ export function PeopleListScreen({ navigation }: Props) {
   const [phraseCounts, setPhraseCounts] = useState<Record<string, number>>({});
   const [query, setQuery] = useState('');
 
+  const load = useCallback(async () => {
+    const [ppl, phrases] = await Promise.all([listPeople(), listPhrases()]);
+    const counts: Record<string, number> = {};
+    for (const ph of phrases) if (ph.for_person) counts[ph.for_person] = (counts[ph.for_person] ?? 0) + 1;
+    setPeople(ppl);
+    setPhraseCounts(counts);
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let alive = true;
       (async () => {
-        const [ppl, phrases] = await Promise.all([listPeople(), listPhrases()]);
-        if (!alive) return;
-        const counts: Record<string, number> = {};
-        for (const ph of phrases) if (ph.for_person) counts[ph.for_person] = (counts[ph.for_person] ?? 0) + 1;
-        setPeople(ppl);
-        setPhraseCounts(counts);
+        if (alive) await load();
       })();
       return () => {
         alive = false;
       };
-    }, []),
+    }, [load]),
   );
+
+  const confirmDelete = (p: PersonRow) => {
+    Alert.alert(`Delete ${p.name}?`, 'They’ll be removed from your People list. Past entries keep their text.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await deletePerson(p.id);
+          await load();
+        },
+      },
+    ]);
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -110,6 +128,7 @@ export function PeopleListScreen({ navigation }: Props) {
               )}
               <Pressable
                 onPress={() => navigation.navigate('PersonDetail', { id: p.id })}
+                onLongPress={() => confirmDelete(p)}
                 style={({ pressed }) => ({
                   flexDirection: 'row',
                   alignItems: 'center',

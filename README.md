@@ -109,7 +109,40 @@ What's now buildable:
 - ⏳ Interim **LIBRARY → All people** lives on Lately until Settings/Search land (Phase 4).
 - ℹ️ No schema change — `people` already carried `context` / `lang` / `last_mention_at`.
 
-Search / Lately / Phrases remain placeholders (Phases 3–4).
+## Build status — Phase 3 (Phrases + services)
+
+- ✅ **Phrase creation (§12)** — `/phrases/new`: type **English only**; language auto-infers
+  from the tagged person (overridable); SAVE is non-blocking (writes the row with pending
+  flags, then the background pipeline auto-translates + auto-synthesises). Manual target
+  override marks `tgt_edited` so re-translation won't clobber it.
+- ✅ **Services** (`src/services`): `translate.ts` (→ `translate-phrase`, Anthropic Haiku),
+  `tts.ts` (→ `synthesise-phrase`, Google TTS) + `audioCache.ts` (mp3 → device cache,
+  best-effort Storage upload) + `player.ts` (shared `react-native-nitro-sound` player).
+- ✅ **Audio playback** — the ▶ on phrase cards / lists / People-detail / TODAY plays the
+  cached mp3 (restoring from Storage if missing); spinner while `pending_audio`.
+- ✅ **`/phrases`** grouped by person (FOR [name] · LANG) + GENERAL; **`/phrases/practise`**
+  flip-card session (REVEAL plays audio, NEXT / SHUFFLE).
+- ✅ **Inline phrase chips (unified with @)** — typing `#` (or the toolbar button) opens
+  the phrase picker; picking/creating inserts an inline accent **`«english»` chip** right
+  at the caret, exactly like `[name]`. Person + phrase are one inline-token model
+  (`src/data/mentions.ts`, 20 unit tests). "＋ NEW PHRASE" inserts a stub chip + the
+  `/phrases/new` round-trip; the stub resolves in place on return (`resolveStubToken`).
+- ✅ **Tap-to-reveal translation** — in a read view, tapping a `«phrase»` chip reveals a
+  panel right there: target translation + **romanisation** (for Cyrillic — RU/UK) + ▶
+  audio. No more card dumped at the bottom of the entry.
+- ✅ **Live refresh** — a phrase pub/sub (`subscribePhrases`) updates the inline reveal in
+  place as translation/audio resolve in the background — no need to leave + re-open.
+- ✅ **Romanisation shown** everywhere a phrase is revealed (was generated + stored all
+  along; the old card just never rendered it).
+- ✅ **Phrase entries fully editable** — committed entries with phrases open read-only;
+  tap text → edit (toolbar, @/# pickers, atomic chips). No read-only gate.
+- ✅ **"+ ADD" phrase for a person** on PersonDetail; **All phrases** entry on Lately.
+- ✅ Offline-safe: pending phrases resolve on startup + on reconnect (`resolvePendingPhrases`).
+- 🔌 Needs the two Edge Functions **deployed** with secrets — see `supabase/README.md`.
+  No SQL/schema change (the `phrases` table already had every column).
+- ➕ Deps: `react-native-nitro-sound` (Nitro player) + `@dr.pogodin/react-native-fs` (mp3 cache).
+
+Search / Lately remain placeholders (Phase 4).
 
 Project conventions, per-phase plan, and the full design contract live in the
 design-handoff bundle's `ROUTING.md` (not committed to this repo).
