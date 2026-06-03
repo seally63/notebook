@@ -18,6 +18,7 @@ import { PersonNewScreen } from '../screens/PersonNewScreen';
 import { PhrasesListScreen } from '../screens/PhrasesListScreen';
 import { PhraseNewScreen } from '../screens/PhraseNewScreen';
 import { PhrasePracticeScreen } from '../screens/PhrasePracticeScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
 import { kv, KV } from '../lib/storage';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -38,6 +39,7 @@ export function RootNavigator() {
       <Stack.Screen name="Phrases" component={PhrasesListScreen} />
       <Stack.Screen name="PhraseNew" component={PhraseNewScreen} options={{ presentation: 'modal' }} />
       <Stack.Screen name="PhrasePractice" component={PhrasePracticeScreen} options={{ presentation: 'modal' }} />
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ presentation: 'modal' }} />
     </Stack.Navigator>
   );
 }

@@ -37,6 +37,8 @@ export type RootStackParamList = {
       }
     | undefined;
   PhrasePractice: { personId?: string } | undefined;
+  // settings — modal (close-X), reached from Lately's ☰
+  Settings: undefined;
 };
 
 declare global {
