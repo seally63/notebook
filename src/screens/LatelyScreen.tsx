@@ -1,111 +1,237 @@
-// Phase 0/1 placeholder for Lately (`/lately`) — dock·LATELY.
-// Real 4-week calendar + carry-overs + quiet rows arrive in Phase 4, as does the full
-// Settings screen (via the ☰). Until then, this hosts a minimal ACCOUNT block so a
-// user who skipped onboarding can still sign in / create an account later (the brief's
-// "sign-in activates sync + back-fills local data" path).
+// Lately (`/lately`) — the relational overview (dock·LATELY). Three sections built from
+// the local DB (src/data/lately.ts):
+//   1. LAST FOUR WEEKS — a Mon-first calendar; days with a committed entry are marked
+//      (dot scaled by length), today is filled. Tap a marked day → its entry.
+//   2. CARRY OVER — forward-looking notes-to-self from recent entries → tap to the source.
+//   3. QUIET FOR A WHILE — people not mentioned in 14+ days → tap to /people/:id.
+// The ☰ opens Settings (where the People/Phrases libraries + account now live).
 
-import React from 'react';
-import { Text, ScrollView, View, Pressable, Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
+import { Text, ScrollView, View, Pressable } from 'react-native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { Screen } from '../components/Screen';
+import { Icon } from '../components/Icon';
 import { useDockLayout } from '../components/dockLayout';
-import { colors } from '../theme/tokens';
+import { colors, radius, fonts, tracking } from '../theme/tokens';
 import { text } from '../theme/typography';
-import { useAuth } from '../auth/AuthContext';
+import { monthYearLabel } from '../lib/format';
+import { getLatelyData, type LatelyData, type CalDay } from '../data/lately';
 
-// The LIBRARY block lands in Settings (§4 Settings·LIBRARY) in Phase 4. Until then it
-// lives here so the People/Phrases libraries are reachable (Search's BROWSE chips are
-// also a Phase 4 build). Phrases is shown but disabled until Phase 3.
+const WD = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
 export function LatelyScreen() {
   const { clearance } = useDockLayout();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const { user, signOut } = useAuth();
+  const [data, setData] = useState<LatelyData>({ weeks: [], carryOvers: [], quiet: [] });
 
-  const onSignOut = async () => {
-    await signOut();
-    Alert.alert('Signed out', 'You’re back to writing locally. Your entries stay on this device.');
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      getLatelyData().then((d) => {
+        if (alive) setData(d);
+      });
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
+
+  const openDay = (day: CalDay) => {
+    if (day.entryId) navigation.navigate('Entry', { id: day.entryId });
   };
+
+  const empty = data.weeks.every((w) => w.every((d) => !d.has)) && data.carryOvers.length === 0 && data.quiet.length === 0;
 
   return (
     <Screen padTop>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: clearance }}>
-        <Text style={[text.monoLabel, { marginTop: 8 }]}>LATELY</Text>
-        <Text style={[text.title, { marginTop: 8 }]}>A relational overview.</Text>
-        <Text style={[text.body, { color: colors.textSoft, marginTop: 10, lineHeight: 21 }]}>
-          Who you’re thinking about, and who’s gone quiet. The 4-week calendar, carry-overs, and Settings
-          arrive in Phase 4.
+        {/* header */}
+        <View
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingVertical: 8,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.rule,
+          }}>
+          <Text style={[text.monoLabel, { color: colors.text }]}>NOTEBOOK · LATELY</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Text style={[text.monoLabel]}>{monthYearLabel()}</Text>
+            <Pressable onPress={() => navigation.navigate('Settings')} hitSlop={10} accessibilityLabel="Settings">
+              <Icon name="hamburger" size={17} color={colors.text} />
+            </Pressable>
+          </View>
+        </View>
+
+        <Text style={[text.body, { color: colors.textSoft, marginTop: 12, lineHeight: 20, fontSize: 13 }]}>
+          who you’ve been thinking about — and who’s waiting.
         </Text>
 
-        {/* LIBRARY — interim entry point to People/Phrases until Settings (Phase 4) */}
-        <View style={{ marginTop: 28, paddingTop: 18, borderTopWidth: 1, borderTopColor: colors.rule }}>
-          <Text style={[text.monoFieldLabel]}>LIBRARY</Text>
-          <Pressable
-            onPress={() => navigation.navigate('People')}
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingVertical: 14,
-              borderBottomWidth: 1,
-              borderBottomColor: colors.ruleSoft,
-              opacity: pressed ? 0.6 : 1,
-            })}>
-            <Text style={[text.body, { color: colors.text }]}>All people</Text>
-            <Text style={[text.monoButton, { fontSize: 11, color: colors.accent }]}>OPEN ↗</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => navigation.navigate('Phrases')}
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingVertical: 14,
-              opacity: pressed ? 0.6 : 1,
-            })}>
-            <Text style={[text.body, { color: colors.text }]}>All phrases</Text>
-            <Text style={[text.monoButton, { fontSize: 11, color: colors.accent }]}>OPEN ↗</Text>
-          </Pressable>
+        {/* calendar */}
+        <SectionLabel label="LAST FOUR WEEKS" trailing={monthYearLabel()} />
+        <View style={{ flexDirection: 'row', marginTop: 8 }}>
+          {WD.map((l, i) => (
+            <Text key={i} style={{ flex: 1, textAlign: 'center', fontFamily: fonts.mono.regular, fontSize: 9, color: colors.mutedSoft, letterSpacing: 0.9 }}>
+              {l}
+            </Text>
+          ))}
         </View>
+        {data.weeks.map((week, wi) => (
+          <View key={wi} style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
+            {week.map((day) => (
+              <DayCell key={day.date} day={day} onPress={() => openDay(day)} />
+            ))}
+          </View>
+        ))}
 
-        {/* ACCOUNT — interim home for sign-in/out until Settings (Phase 4) */}
-        <View style={{ marginTop: 28, paddingTop: 18, borderTopWidth: 1, borderTopColor: colors.rule }}>
-          <Text style={[text.monoFieldLabel]}>ACCOUNT</Text>
-
-          {user ? (
-            <>
-              <Text style={[text.body, { color: colors.text, marginTop: 10 }]}>{user.email}</Text>
-              <Text style={[text.monoMicro, { fontSize: 10, marginTop: 4, textTransform: 'none' }]}>
-                Synced across your devices.
+        {/* carry over */}
+        <SectionLabel
+          label="CARRY OVER"
+          trailing={data.carryOvers.length ? `${data.carryOvers.length} TO BRING` : ''}
+        />
+        {data.carryOvers.length === 0 ? (
+          <Hint>notes-to-self from your entries (“ask about…”, “remember…”) gather here.</Hint>
+        ) : (
+          data.carryOvers.map((c) => (
+            <Pressable
+              key={c.entryId}
+              onPress={() => navigation.navigate('Entry', { id: c.entryId })}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                gap: 12,
+                paddingVertical: 11,
+                borderTopWidth: 1,
+                borderTopColor: colors.ruleSoft,
+                opacity: pressed ? 0.6 : 1,
+              })}>
+              <Text style={{ width: 44, fontFamily: fonts.mono.regular, fontSize: 10, color: colors.muted, paddingTop: 2 }}>
+                {c.date.slice(8)}.{c.date.slice(5, 7)}
               </Text>
-              <Pressable onPress={onSignOut} hitSlop={8} style={{ marginTop: 16 }}>
-                <Text style={[text.monoButton, { fontSize: 11, color: colors.accent }]}>SIGN OUT</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Text style={[text.body, { color: colors.textSoft, marginTop: 10, lineHeight: 21 }]}>
-                You’re writing locally. Sign in to back up and sync across devices — your existing entries
-                come with you.
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 22, marginTop: 16 }}>
-                <Text
-                  onPress={() => navigation.navigate('SignIn')}
-                  style={[text.monoButton, { fontSize: 11, color: colors.accent }]}>
-                  SIGN IN ↗
-                </Text>
-                <Text
-                  onPress={() => navigation.navigate('Register')}
-                  style={[text.monoButton, { fontSize: 11, color: colors.accent }]}>
-                  CREATE ACCOUNT ↗
-                </Text>
+              <View style={{ flex: 1 }}>
+                {!!c.personName && (
+                  <Text style={{ fontFamily: fonts.mono.regular, fontSize: 10.5, color: colors.accent, marginBottom: 3 }}>
+                    → [{c.personName.toLowerCase()}]
+                  </Text>
+                )}
+                <Text style={[text.body, { fontSize: 13.5, lineHeight: 19 }]}>{c.text}</Text>
               </View>
-            </>
-          )}
-        </View>
+              <Icon name="chev" size={13} color={colors.mutedSoft} />
+            </Pressable>
+          ))
+        )}
+
+        {/* quiet for a while */}
+        <SectionLabel label="QUIET FOR A WHILE" trailing="" />
+        <Hint>no nudge. just a held door.</Hint>
+        {data.quiet.length === 0 ? (
+          <Text style={[text.monoMicro, { fontSize: 10, color: colors.mutedSoft, paddingVertical: 8, textTransform: 'none' }]}>
+            no one’s gone quiet — nice.
+          </Text>
+        ) : (
+          data.quiet.map((q) => (
+            <Pressable
+              key={q.person.id}
+              onPress={() => navigation.navigate('PersonDetail', { id: q.person.id })}
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                paddingVertical: 11,
+                borderTopWidth: 1,
+                borderTopColor: colors.ruleSoft,
+                opacity: pressed ? 0.6 : 1,
+              })}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={[text.body]} numberOfLines={1}>
+                  {q.person.name}
+                </Text>
+                {!!q.lastNote && (
+                  <Text style={[text.monoMicro, { fontSize: 10.5, textTransform: 'none', marginTop: 2 }]} numberOfLines={1}>
+                    last note · {q.lastNote}
+                  </Text>
+                )}
+              </View>
+              <Text style={{ fontFamily: fonts.mono.regular, fontSize: 10, color: colors.accent, letterSpacing: 0.8 }}>
+                {q.daysSince}d
+              </Text>
+            </Pressable>
+          ))
+        )}
+
+        {empty && (
+          <Text style={[text.monoMicro, { fontSize: 10, color: colors.mutedSoft, marginTop: 28, textAlign: 'center', textTransform: 'none', lineHeight: 16 }]}>
+            write a few entries and mention people — your relational overview builds itself here.
+          </Text>
+        )}
       </ScrollView>
     </Screen>
+  );
+}
+
+function DayCell({ day, onPress }: { day: CalDay; onPress: () => void }) {
+  const dotSize = day.has ? Math.round(4 + day.weight * 6) : 0;
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={!day.has}
+      style={{
+        flex: 1,
+        aspectRatio: 1,
+        borderRadius: radius.sm,
+        backgroundColor: day.isToday ? colors.accent : day.has ? colors.surface : 'transparent',
+        borderWidth: day.isToday ? 0 : 1,
+        borderColor: day.has ? colors.rule : colors.ruleSoft,
+        padding: 4,
+        justifyContent: 'space-between',
+      }}>
+      <Text
+        style={{
+          fontFamily: fonts.mono.regular,
+          fontSize: 10,
+          color: day.isToday ? '#fff' : day.has ? colors.text : colors.mutedSoft,
+        }}>
+        {String(day.d).padStart(2, '0')}
+      </Text>
+      {day.has && !day.isToday && (
+        <View style={{ width: dotSize, height: dotSize, borderRadius: dotSize / 2, backgroundColor: colors.accent, alignSelf: 'flex-end' }} />
+      )}
+      {day.isToday && (
+        <Text style={{ fontFamily: fonts.mono.regular, fontSize: 7.5, color: '#fff', alignSelf: 'flex-end', opacity: 0.85, letterSpacing: 0.6 }}>
+          NOW
+        </Text>
+      )}
+    </Pressable>
+  );
+}
+
+function SectionLabel({ label, trailing }: { label: string; trailing?: string }) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        marginTop: 22,
+        paddingBottom: 6,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.rule,
+      }}>
+      <Text style={{ fontFamily: fonts.mono.regular, fontSize: 10, color: colors.text, letterSpacing: tracking(10, 0.14), textTransform: 'uppercase' }}>
+        {label}
+      </Text>
+      {!!trailing && <Text style={[text.monoMicro, { fontSize: 10 }]}>{trailing}</Text>}
+    </View>
+  );
+}
+
+function Hint({ children }: { children: React.ReactNode }) {
+  return (
+    <Text style={{ fontFamily: fonts.body.regular, fontSize: 11.5, color: colors.muted, lineHeight: 17, marginTop: 6 }}>
+      {children}
+    </Text>
   );
 }

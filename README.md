@@ -142,7 +142,24 @@ What's now buildable:
   No SQL/schema change (the `phrases` table already had every column).
 - ➕ Deps: `react-native-nitro-sound` (Nitro player) + `@dr.pogodin/react-native-fs` (mp3 cache).
 
-Search / Lately remain placeholders (Phase 4).
+## Build status — Phase 4 (Lately · Search · Settings)
+
+- ✅ **Lately** (`/lately`) — built from the local DB (`src/data/lately.ts`): a Mon-first
+  **4-week calendar** (days with a committed entry marked, dot scaled by length, today
+  filled, tap → that entry); **CARRY OVER** — forward-looking notes-to-self pulled from
+  recent entries by a tested heuristic (`src/data/carryover.ts`), attributed to the
+  mentioned person, tap → source entry; **QUIET FOR A WHILE** — people not mentioned in
+  14+ days → `/people/:id`. The ☰ opens Settings.
+- ✅ **Search** (`/search`) — one live-filter query across **people / entries / phrases**
+  (`src/data/search.ts`) with match highlighting + routing to each detail; **OR BROWSE**
+  chips (ENTRIES / PEOPLE / PHRASES) are the durable doors into the libraries.
+- ✅ **Settings** (`/settings`, modal via Lately ☰) — real actions only: **ACCOUNT**
+  (email + sign out / sign in), **LIBRARY** (All people / All phrases), **LANGUAGES**
+  (derived from people + phrase counts), **DATA** (Export all entries → Markdown via the
+  share sheet; Delete this notebook → local wipe, cloud copy kept if signed in), **ABOUT**.
+- ✅ Interim LIBRARY/ACCOUNT blocks removed from Lately (now in Settings).
+- ℹ️ No schema change, no new dependencies (export uses RN `Share` + existing
+  `react-native-fs`).
 
 Project conventions, per-phase plan, and the full design contract live in the
 design-handoff bundle's `ROUTING.md` (not committed to this repo).
