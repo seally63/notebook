@@ -30,10 +30,24 @@ export function PhrasePicker({
   onClose: () => void;
 }) {
   const q = query.trim().toLowerCase();
-  const filtered = useMemo(
-    () => (q ? phrases.filter((p) => p.en.toLowerCase().includes(q) || (p.tgt ?? '').toLowerCase().includes(q)) : phrases),
-    [phrases, q],
-  );
+  // Suggest progressively, type-ahead style. A field "matches" when it STARTS WITH the
+  // query — i.e. you're completing a phrase from its beginning ("I w…" → "I want to skip
+  // rope"). A short query no longer matches interior letters ("I" won't pull in
+  // "what is that" or "disciplined"). For multi-word queries we also allow a contained
+  // exact run so "skip rope" still finds "I want to skip rope".
+  const filtered = useMemo(() => {
+    if (!q) return [];
+    const startsWith = (s: string | null | undefined) => !!s && s.toLowerCase().startsWith(q);
+    const contains = (s: string | null | undefined) => !!s && s.toLowerCase().includes(q);
+    const multiWord = q.includes(' ');
+    return phrases.filter((p) => {
+      const person = p.for_person ? people[p.for_person]?.name : undefined;
+      const fields = [p.en, p.tgt, p.tgt_romanised, person];
+      if (fields.some(startsWith)) return true;
+      // a multi-word query is specific enough to match anywhere inside the phrase
+      return multiWord && fields.some(contains);
+    });
+  }, [phrases, people, q]);
 
   if (!visible) return null;
 
@@ -86,7 +100,12 @@ export function PhrasePicker({
           );
         })}
 
-        {filtered.length === 0 && (
+        {q.length === 0 && (
+          <Text style={[text.monoMicro, { fontSize: 10, padding: 16, textAlign: 'center', textTransform: 'none' }]}>
+            type to find a saved phrase, or tap ＋ NEW PHRASE
+          </Text>
+        )}
+        {q.length > 0 && filtered.length === 0 && (
           <Text style={[text.monoMicro, { fontSize: 10, padding: 16, textAlign: 'center' }]}>
             NO MATCHES — TAP ＋ NEW PHRASE
           </Text>
