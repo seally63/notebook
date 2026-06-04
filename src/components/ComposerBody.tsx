@@ -73,9 +73,21 @@ export function ComposerBody({
   const valueRef = useRef(value);
   valueRef.current = value;
   const inputRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollView>(null);
   // when the user dismisses the picker (✕) we suppress the trigger at that sigil index
   // until the text changes again, so the `#…` they typed stays as plain text.
   const dismissedStart = useRef<number | null>(null);
+  // true while the caret is at/near the end of the text, so growth = "typing at the
+  // bottom" and we should keep that newest line visible above the toolbar. Starts false so
+  // simply loading a long entry into edit mode doesn't yank it to the bottom — it flips
+  // true only once the user's caret actually sits at the end (focus / selection).
+  const caretAtEndRef = useRef(false);
+
+  // When the editor's content grows (a new line pushes it taller) and the user is typing
+  // at the end, keep the bottom in view so the toolbar never covers the live caret.
+  const maybeScrollToCaret = useCallback(() => {
+    if (caretAtEndRef.current) scrollRef.current?.scrollToEnd({ animated: true });
+  }, []);
 
   useEffect(() => {
     listPeople().then(setPeople);
@@ -108,6 +120,7 @@ export function ComposerBody({
   const onSelectionChange = (e: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
     const s = e.nativeEvent.selection;
     caretRef.current = s.start;
+    caretAtEndRef.current = s.end >= valueRef.current.text.length; // typing at the bottom?
     setCaret(s.start);
     if (pendingSelection) setPendingSelection(undefined); // forced caret applied
   };
@@ -171,12 +184,35 @@ export function ComposerBody({
   };
 
   const editorChildren = useMemo(() => buildChildren(value), [value]);
+  const TOOLBAR_H = 46; // approx height of the writing toolbar bar
+  const PICKER_H = 320; // max height of the @/# picker card (matches its maxHeight)
   const toolbarBottom = (kb > 0 ? kb : Math.max(insets.bottom, 12)) + 12;
   const pickerBottom = toolbarBottom + 58; // sit above the writing toolbar
+  // The ScrollView fills the screen behind the keyboard, so the caret must be able to
+  // scroll clear of whatever's floating over it. Normally that's the toolbar; while a
+  // picker is open it's the much taller picker card — reserve for whichever is showing.
+  const overlayH = trigger ? PICKER_H + 58 : TOOLBAR_H;
+  const scrollPadBottom = toolbarVisible ? toolbarBottom + overlayH + 24 : 40;
+
+  // when a picker opens (or grows), keep the line you're typing on visible above it
+  useEffect(() => {
+    if (trigger && caretAtEndRef.current) {
+      const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
+      return () => clearTimeout(t);
+    }
+  }, [trigger]);
 
   return (
     <>
-      <ScrollView style={styles.flex} contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        ref={scrollRef}
+        style={styles.flex}
+        contentContainerStyle={[styles.scroll, { paddingBottom: scrollPadBottom }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="none"
+        // we manage keyboard insets manually (toolbar floats above the keyboard), so the
+        // OS must not also auto-inset or it double-counts and the caret hides again.
+        automaticallyAdjustKeyboardInsets={false}>
         <TextInput
           ref={inputRef}
           autoFocus={autoFocus}
@@ -185,6 +221,7 @@ export function ComposerBody({
           selection={pendingSelection}
           onSelectionChange={onSelectionChange}
           onFocus={onFocus}
+          onContentSizeChange={maybeScrollToCaret}
           placeholder={placeholder}
           placeholderTextColor={colors.mutedSoft}
           selectionColor={colors.accent}
@@ -270,7 +307,7 @@ function ToolbarItem({ label, sigil, active, onPress }: { label: string; sigil: 
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  scroll: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 140 },
+  scroll: { paddingHorizontal: 20, paddingTop: 16 }, // paddingBottom applied dynamically
   input: {
     fontFamily: fonts.body.regular,
     fontSize: 14,
