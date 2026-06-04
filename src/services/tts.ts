@@ -12,7 +12,7 @@ export interface SynthResult {
   path: string; // local cache file path
 }
 
-const SUPPORTED = new Set(['pl-PL', 'uk-UA', 'ru-RU']);
+const SUPPORTED = new Set(['pl-PL', 'uk-UA', 'ru-RU', 'es-ES', 'fr-FR', 'de-DE', 'ja-JP', 'ko-KR', 'zh-CN']);
 
 export function ttsSupportsLang(lang: string | null | undefined): boolean {
   return !!lang && SUPPORTED.has(lang);

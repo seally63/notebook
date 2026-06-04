@@ -10,6 +10,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Icon } from '../components/Icon';
+import { FilterChips, type ChipOption } from '../components/FilterChips';
 import { useDockLayout } from '../components/dockLayout';
 import { colors, radius, fonts, tracking } from '../theme/tokens';
 import { text } from '../theme/typography';
@@ -19,11 +20,14 @@ import { searchAll, type SearchResults } from '../data/search';
 
 const EMPTY: SearchResults = { people: [], entries: [], phrases: [], counts: { entries: 0, people: 0, phrases: 0 } };
 
+type Kind = 'all' | 'entries' | 'people' | 'phrases';
+
 export function SearchScreen() {
   const { clearance } = useDockLayout();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [query, setQuery] = useState('');
   const [res, setRes] = useState<SearchResults>(EMPTY);
+  const [kind, setKind] = useState<Kind>('all');
   const seq = useRef(0);
 
   // load library counts on mount (for the BROWSE chips even with no query)
@@ -41,7 +45,19 @@ export function SearchScreen() {
 
   const q = query.trim();
   const hasQuery = q.length > 0;
-  const nothing = hasQuery && res.people.length === 0 && res.entries.length === 0 && res.phrases.length === 0;
+  const showPeople = kind === 'all' || kind === 'people';
+  const showEntries = kind === 'all' || kind === 'entries';
+  const showPhrases = kind === 'all' || kind === 'phrases';
+  const visibleCount =
+    (showPeople ? res.people.length : 0) + (showEntries ? res.entries.length : 0) + (showPhrases ? res.phrases.length : 0);
+  const nothing = hasQuery && visibleCount === 0;
+
+  const kindChips: ChipOption[] = [
+    { key: 'all', label: 'ALL' },
+    { key: 'entries', label: 'ENTRIES', count: res.entries.length },
+    { key: 'people', label: 'PEOPLE', count: res.people.length },
+    { key: 'phrases', label: 'PHRASES', count: res.phrases.length },
+  ];
 
   return (
     <Screen padTop>
@@ -86,18 +102,26 @@ export function SearchScreen() {
           />
         </View>
 
-        {/* browse hub */}
-        <Text style={{ marginTop: 14, marginBottom: 6, fontFamily: fonts.mono.regular, fontSize: 9.5, color: colors.mutedSoft, letterSpacing: 1 }}>
-          OR BROWSE
-        </Text>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          <BrowseChip label="ENTRIES" n={res.counts.entries} onPress={() => navigation.navigate('Home', { screen: 'Write' })} />
-          <BrowseChip label="PEOPLE" n={res.counts.people} onPress={() => navigation.navigate('People')} />
-          <BrowseChip label="PHRASES" n={res.counts.phrases} onPress={() => navigation.navigate('Phrases')} />
-        </View>
+        {/* while querying: type filter chips. otherwise: the BROWSE hub. */}
+        {hasQuery ? (
+          <View style={{ marginTop: 12 }}>
+            <FilterChips options={kindChips} active={kind} onChange={(k) => setKind(k as Kind)} />
+          </View>
+        ) : (
+          <>
+            <Text style={{ marginTop: 14, marginBottom: 6, fontFamily: fonts.mono.regular, fontSize: 9.5, color: colors.mutedSoft, letterSpacing: 1 }}>
+              OR BROWSE
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <BrowseChip label="ENTRIES" n={res.counts.entries} onPress={() => navigation.navigate('Home', { screen: 'Write' })} />
+              <BrowseChip label="PEOPLE" n={res.counts.people} onPress={() => navigation.navigate('People')} />
+              <BrowseChip label="PHRASES" n={res.counts.phrases} onPress={() => navigation.navigate('Phrases')} />
+            </View>
+          </>
+        )}
 
         {/* results */}
-        {res.people.length > 0 && (
+        {showPeople && res.people.length > 0 && (
           <>
             <GroupLabel label="PEOPLE" n={res.people.length} />
             {res.people.map((p) => (
@@ -118,7 +142,7 @@ export function SearchScreen() {
           </>
         )}
 
-        {res.entries.length > 0 && (
+        {showEntries && res.entries.length > 0 && (
           <>
             <GroupLabel label="ENTRIES" n={res.entries.length} />
             {res.entries.map(({ entry, preview }) => {
@@ -142,7 +166,7 @@ export function SearchScreen() {
           </>
         )}
 
-        {res.phrases.length > 0 && (
+        {showPhrases && res.phrases.length > 0 && (
           <>
             <GroupLabel label="PHRASES" n={res.phrases.length} />
             {res.phrases.map((p) => (

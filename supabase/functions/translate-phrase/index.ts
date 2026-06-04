@@ -16,16 +16,22 @@ const MODEL = 'claude-haiku-4-5-20251001';
 // "less crude" alternatives. When the phrase changes form by the SPEAKER's gender (common
 // in Slavic past tense / adjectives), it returns both forms as `variants`.
 const SYSTEM = `You translate short conversational phrases for an English speaker learning
-to speak a language (Polish, Ukrainian, or Russian). Return ONLY valid JSON:
+to speak another language. The target language is given as a BCP-47 code (e.g. pl-PL,
+uk-UA, ru-RU, es-ES, fr-FR, de-DE, ja-JP, ko-KR, zh-CN). Return ONLY valid JSON:
 
 {
-  "tgt": string,            // the phrase in native script (Cyrillic for ru/uk, Latin for pl).
+  "tgt": string,            // the phrase in the language's NATIVE script (Cyrillic for ru/uk,
+                            // kana/kanji for ja, hangul for ko, Chinese characters for zh,
+                            // Latin for pl/es/fr/de).
                             // Use the masculine speaker form here if the phrase is gendered.
   "tgt_romanised": string | null,
-                            // Latin transliteration of tgt; null for Polish (already Latin).
+                            // Latin transliteration of tgt for non-Latin scripts:
+                            //   ru/uk → Cyrillic transliteration, ja → romaji, ko → romaja,
+                            //   zh → Hanyu Pinyin (with tone marks).
+                            // null for already-Latin languages (pl, es, fr, de).
   "register": "informal" | "neutral" | "formal",  // the register you actually used.
   "variants": [             // ONLY when the phrase changes with the SPEAKER's gender
-                            // (e.g. past-tense verbs, adjectives). Omit or use [] otherwise.
+                            // (e.g. Slavic past tense, some adjectives). Omit or use [] otherwise.
     { "gender": "male",   "tgt": string, "romanised": string | null },
     { "gender": "female", "tgt": string, "romanised": string | null }
   ],
@@ -38,6 +44,8 @@ Rules:
   EXACTLY as written — never soften, censor, or suggest a politer alternative. The user's
   wording is deliberate.
 - Choose the most natural phrasing for the meaning; default to informal register.
+- tgt_romanised: provide it for non-Latin scripts (Cyrillic, Japanese, Korean, Chinese
+  pinyin); use null for Latin-script languages (Polish, Spanish, French, German).
 - Gender = the GENDER OF THE SPEAKER (the person saying it), not who they're talking to.
   Only populate "variants" when the two forms genuinely differ; otherwise omit it.
 - "note" is for grammar only, never for register/politeness commentary or alternatives.

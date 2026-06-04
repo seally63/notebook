@@ -17,18 +17,12 @@ import { Button } from '../components/Button';
 import { Sheet } from '../components/Sheet';
 import { colors, radius, fonts } from '../theme/tokens';
 import { text } from '../theme/typography';
-import { langShort, langName } from '../lib/lang';
+import { langShort, langName, LANGUAGES } from '../lib/lang';
 import { listPeople, getPerson } from '../data/people';
 import { createPhrase } from '../data/phrases';
 import type { PersonRow } from '../db/schema';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PhraseNew'>;
-
-const LANGS: { code: string; short: string; name: string }[] = [
-  { code: 'pl-PL', short: 'PL', name: 'POLISH' },
-  { code: 'uk-UA', short: 'UK', name: 'UKRAINIAN' },
-  { code: 'ru-RU', short: 'RU', name: 'RUSSIAN' },
-];
 
 export function PhraseNewScreen({ route, navigation }: Props) {
   const insets = useSafeAreaInsets();
@@ -42,6 +36,7 @@ export function PhraseNewScreen({ route, navigation }: Props) {
   const [langAuto, setLangAuto] = useState(false); // language came from the person
   const [people, setPeople] = useState<PersonRow[]>([]);
   const [personSheet, setPersonSheet] = useState(false);
+  const [langSheet, setLangSheet] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -77,7 +72,9 @@ export function PhraseNewScreen({ route, navigation }: Props) {
   const pickLang = (code: string) => {
     setLang(code);
     setLangAuto(false);
+    setLangSheet(false);
   };
+  const selectedLang = LANGUAGES.find((l) => l.code === lang);
 
   return (
     <Screen padTop>
@@ -145,31 +142,31 @@ export function PhraseNewScreen({ route, navigation }: Props) {
           <Icon name="chev" size={14} color={colors.muted} />
         </Pressable>
 
-        {/* LANGUAGE — auto from person, overridable */}
+        {/* LANGUAGE — auto from person, overridable; tappable row → sheet (like FOR) */}
         <FieldLabel label="LANGUAGE" note={langAuto && personName ? `AUTO · FROM [${personName.toUpperCase()}]` : undefined} />
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          {LANGS.map((l) => {
-            const sel = l.code === lang;
-            return (
-              <Pressable
-                key={l.code}
-                onPress={() => pickLang(l.code)}
-                style={{
-                  flex: 1,
-                  paddingVertical: 10,
-                  alignItems: 'center',
-                  borderRadius: radius.sm,
-                  borderWidth: 1,
-                  borderColor: sel ? colors.text : colors.rule,
-                  backgroundColor: sel ? colors.text : colors.surface,
-                }}>
-                <Text style={{ fontFamily: fonts.mono.regular, fontSize: 10, letterSpacing: 0.8, color: sel ? colors.surface : colors.muted }}>
-                  {l.short} · {l.name}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <Pressable
+          onPress={() => setLangSheet(true)}
+          style={{
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: colors.rule,
+            borderRadius: radius.sm,
+            paddingHorizontal: 14,
+            paddingVertical: 13,
+          }}>
+          {selectedLang ? (
+            <Text style={[text.body, { color: colors.text }]}>
+              <Text style={{ fontFamily: fonts.mono.regular, fontSize: 12, color: colors.accent }}>{selectedLang.short}</Text>
+              {`  ${selectedLang.name}`}
+              <Text style={{ color: colors.muted }}>{`  · ${selectedLang.native}`}</Text>
+            </Text>
+          ) : (
+            <Text style={[text.body, { color: colors.mutedSoft }]}>Choose a language</Text>
+          )}
+          <Icon name="chev" size={14} color={colors.muted} />
+        </Pressable>
 
         {/* what happens on save (the target + audio are generated after) */}
         <View
@@ -230,6 +227,42 @@ export function PhraseNewScreen({ route, navigation }: Props) {
                 NO PEOPLE YET
               </Text>
             )}
+          </ScrollView>
+        </View>
+      </Sheet>
+
+      {/* language picker */}
+      <Sheet visible={langSheet} onClose={() => setLangSheet(false)}>
+        <View style={{ maxHeight: 380 }}>
+          <View style={{ paddingHorizontal: 16, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.rule }}>
+            <Text style={[text.monoLabel, { fontSize: 10 }]}>LANGUAGE</Text>
+          </View>
+          <ScrollView keyboardShouldPersistTaps="always">
+            {LANGUAGES.map((l) => {
+              const sel = l.code === lang;
+              return (
+                <Pressable
+                  key={l.code}
+                  onPress={() => pickLang(l.code)}
+                  style={({ pressed }) => ({
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingHorizontal: 16,
+                    paddingVertical: 13,
+                    borderBottomWidth: 1,
+                    borderBottomColor: colors.ruleSoft,
+                    backgroundColor: pressed ? colors.selected : 'transparent',
+                  })}>
+                  <Text style={[text.body, { fontSize: 13.5 }]}>
+                    <Text style={{ fontFamily: fonts.mono.regular, fontSize: 12, color: colors.accent }}>{l.short}</Text>
+                    {`  ${l.name}`}
+                    <Text style={{ color: colors.muted }}>{`  · ${l.native}`}</Text>
+                  </Text>
+                  {sel && <Text style={{ fontFamily: fonts.mono.regular, fontSize: 11, color: colors.accent }}>✓</Text>}
+                </Pressable>
+              );
+            })}
           </ScrollView>
         </View>
       </Sheet>
