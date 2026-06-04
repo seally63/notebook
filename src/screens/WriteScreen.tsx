@@ -17,7 +17,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { Sheet } from '../components/Sheet';
-import { ComposerBody } from '../components/ComposerBody';
+import { ComposerBody, type ComposerHandle } from '../components/ComposerBody';
+import { UndoRedo } from '../components/UndoRedo';
 import { colors, radius, fonts } from '../theme/tokens';
 import { text } from '../theme/typography';
 import { todayDate } from '../lib/time';
@@ -42,7 +43,9 @@ export function WriteScreen({ navigation }: Props) {
   const [touched, setTouched] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [ready, setReady] = useState(false);
+  const [hist, setHist] = useState({ canUndo: false, canRedo: false });
 
+  const composerRef = useRef<ComposerHandle>(null);
   const bodyRef = useRef<InputState>({ text: '', tokens: [] });
   const draftIdRef = useRef<string | null>(null);
   const allowLeaveRef = useRef(false);
@@ -197,9 +200,17 @@ export function WriteScreen({ navigation }: Props) {
           paddingHorizontal: 20,
           height: 40,
         }}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
-          <Text style={[text.monoLabel, { fontSize: 10 }]}>CANCEL</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+          <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
+            <Text style={[text.monoLabel, { fontSize: 10 }]}>CANCEL</Text>
+          </Pressable>
+          <UndoRedo
+            canUndo={hist.canUndo}
+            canRedo={hist.canRedo}
+            onUndo={() => composerRef.current?.undo()}
+            onRedo={() => composerRef.current?.redo()}
+          />
+        </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, opacity: heartbeatVisible ? 1 : 0 }}>
           <View
@@ -238,7 +249,13 @@ export function WriteScreen({ navigation }: Props) {
 
       {/* shared mention editor */}
       {ready && (
-        <ComposerBody value={body} onChange={onChange} autoFocus onCreatePhrase={onCreatePhrase}>
+        <ComposerBody
+          ref={composerRef}
+          value={body}
+          onChange={onChange}
+          autoFocus
+          onCreatePhrase={onCreatePhrase}
+          onHistoryChange={setHist}>
           {!touched && empty && (
             <View style={{ marginTop: 8, padding: 12, backgroundColor: colors.accentSoft, borderRadius: radius.sm }}>
               <Text style={{ fontFamily: fonts.mono.regular, fontSize: 10, color: colors.textSoft, lineHeight: 17, letterSpacing: 0.4 }}>
