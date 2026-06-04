@@ -20,13 +20,19 @@ import { corsHeaders, json } from '../_shared/cors.ts';
 
 const API_KEY = Deno.env.get('GOOGLE_TTS_API_KEY');
 
-// Wavenet voices (§12). speakingRate 0.95 = slightly slow for learners.
-// NOTE: Ukrainian male availability was unverified at build time — falls back to female.
+// Explicit Wavenet voice names for the original Slavic set (proven). speakingRate 0.95 =
+// slightly slow for learners. For other supported languages we DON'T hardcode a voice
+// name — we pass languageCode + ssmlGender and let Google pick the best available voice.
+// That avoids 502s from a voice name that gets renamed/retired, and keeps the function
+// resilient as Google's catalogue evolves.
 const VOICES: Record<string, { male?: string; female: string }> = {
   'ru-RU': { male: 'ru-RU-Wavenet-D', female: 'ru-RU-Wavenet-A' },
   'pl-PL': { male: 'pl-PL-Wavenet-B', female: 'pl-PL-Wavenet-A' },
   'uk-UA': { female: 'uk-UA-Wavenet-A' },
 };
+
+// Languages we accept (must mirror the app's ttsSupportsLang / LANGUAGES list).
+const SUPPORTED = new Set(['ru-RU', 'pl-PL', 'uk-UA', 'es-ES', 'fr-FR', 'de-DE', 'ja-JP', 'ko-KR', 'zh-CN']);
 const DEFAULT_GENDER: 'male' | 'female' = 'female';
 
 Deno.serve(async (req) => {
@@ -39,10 +45,15 @@ Deno.serve(async (req) => {
     const { tgt, lang, voice_gender } = await req.json();
     if (!tgt || !lang) return json({ error: 'tgt and lang are required' }, 400);
 
-    const langVoices = VOICES[lang];
-    if (!langVoices) return json({ error: `unsupported lang: ${lang}` }, 400);
+    if (!SUPPORTED.has(lang)) return json({ error: `unsupported lang: ${lang}` }, 400);
     const gender = (voice_gender as 'male' | 'female') ?? DEFAULT_GENDER;
-    const voiceName = (gender === 'male' ? langVoices.male : langVoices.female) ?? langVoices.female;
+
+    // Prefer an explicit Wavenet name when we have one; otherwise let Google choose by
+    // languageCode + gender (the `voice.name` field is simply omitted).
+    const langVoices = VOICES[lang];
+    const voiceName = langVoices ? (gender === 'male' ? langVoices.male : langVoices.female) ?? langVoices.female : undefined;
+    const voice: Record<string, unknown> = { languageCode: lang, ssmlGender: gender.toUpperCase() };
+    if (voiceName) voice.name = voiceName;
 
     const resp = await fetch(
       `https://texttospeech.googleapis.com/v1/text:synthesize?key=${encodeURIComponent(API_KEY)}`,
@@ -51,7 +62,7 @@ Deno.serve(async (req) => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           input: { text: tgt },
-          voice: { languageCode: lang, name: voiceName },
+          voice,
           audioConfig: { audioEncoding: 'MP3', speakingRate: 0.95 },
         }),
       },
