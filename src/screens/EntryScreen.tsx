@@ -16,7 +16,8 @@ import type { RootStackParamList } from '../navigation/types';
 import { Screen } from '../components/Screen';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { BodyText } from '../components/BodyText';
-import { ComposerBody } from '../components/ComposerBody';
+import { ComposerBody, type ComposerHandle } from '../components/ComposerBody';
+import { UndoRedo } from '../components/UndoRedo';
 import { Sheet } from '../components/Sheet';
 import { colors, radius } from '../theme/tokens';
 import { text } from '../theme/typography';
@@ -38,7 +39,9 @@ export function EntryScreen({ route, navigation }: Props) {
   const [body, setBody] = useState<InputState>({ text: '', tokens: [] });
   const [editing, setEditing] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [hist, setHist] = useState({ canUndo: false, canRedo: false });
 
+  const composerRef = useRef<ComposerHandle>(null);
   const bodyRef = useRef<InputState>({ text: '', tokens: [] });
   const initialSerialized = useRef('[]');
   const entryNodesRef = useRef<ParsedEntry['nodes']>([]);
@@ -244,9 +247,17 @@ export function EntryScreen({ route, navigation }: Props) {
             paddingHorizontal: 20,
             height: 40,
           }}>
-          <Pressable onPress={onCancel} hitSlop={10}>
-            <Text style={[text.monoLabel, { fontSize: 10 }]}>CANCEL</Text>
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+            <Pressable onPress={onCancel} hitSlop={10}>
+              <Text style={[text.monoLabel, { fontSize: 10 }]}>CANCEL</Text>
+            </Pressable>
+            <UndoRedo
+              canUndo={hist.canUndo}
+              canRedo={hist.canRedo}
+              onUndo={() => composerRef.current?.undo()}
+              onRedo={() => composerRef.current?.redo()}
+            />
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accent }} />
             <Text style={[text.monoMicro, { fontSize: 9 }]}>EDITING</Text>
@@ -280,11 +291,13 @@ export function EntryScreen({ route, navigation }: Props) {
           {editing ? (
             // EDIT state — the shared mention editor (handles text, people, phrase cards)
             <ComposerBody
+              ref={composerRef}
               value={body}
               onChange={onBodyChange}
               autoFocus
               toolbarVisible
               onCreatePhrase={onCreatePhrase}
+              onHistoryChange={setHist}
               placeholder="Write your entry…"
             />
           ) : (

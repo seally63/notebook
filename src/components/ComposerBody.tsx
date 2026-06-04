@@ -6,7 +6,7 @@
 //
 // The hard reconciliation logic is pure + unit-tested in src/data/mentions.ts.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   Text,
   TextInput,
@@ -35,7 +35,23 @@ import {
 import { listPeople, insertPerson } from '../data/people';
 import { listPhrases } from '../data/phrases';
 import { newId } from '../lib/uuid';
+import {
+  type HistoryState,
+  initHistory,
+  push as pushHistory,
+  undo as undoHistory,
+  redo as redoHistory,
+  canUndo as histCanUndo,
+  canRedo as histCanRedo,
+  current as histCurrent,
+} from '../data/history';
 import type { PersonRow, PhraseRow } from '../db/schema';
+
+/** Imperative handle the parent header uses to drive undo/redo. */
+export interface ComposerHandle {
+  undo: () => void;
+  redo: () => void;
+}
 
 export interface ComposerBodyProps {
   value: InputState;
@@ -47,21 +63,27 @@ export interface ComposerBodyProps {
   /** §5 "＋ NEW PHRASE": parent persists the draft + navigates to /phrases/new with the
    *  stub's local_id (to resolve on return) and the typed English (to prefill). */
   onCreatePhrase?: (stubLocalId: string, en: string) => void;
+  /** reports whether undo/redo are available, so the parent can enable/dim its buttons. */
+  onHistoryChange?: (state: { canUndo: boolean; canRedo: boolean }) => void;
   placeholder?: string;
   /** rendered below the editor inside the scroll (coachmark / hints / footer) */
   children?: React.ReactNode;
 }
 
-export function ComposerBody({
-  value,
-  onChange,
-  autoFocus,
-  toolbarVisible = true,
-  onFocus,
-  onCreatePhrase,
-  placeholder = 'What happened today?',
-  children,
-}: ComposerBodyProps) {
+export const ComposerBody = forwardRef<ComposerHandle, ComposerBodyProps>(function ComposerBody(
+  {
+    value,
+    onChange,
+    autoFocus,
+    toolbarVisible = true,
+    onFocus,
+    onCreatePhrase,
+    onHistoryChange,
+    placeholder = 'What happened today?',
+    children,
+  },
+  ref,
+) {
   const insets = useSafeAreaInsets();
   const kb = useKeyboardHeight();
   const [people, setPeople] = useState<PersonRow[]>([]);
@@ -82,6 +104,68 @@ export function ComposerBody({
   // simply loading a long entry into edit mode doesn't yank it to the bottom — it flips
   // true only once the user's caret actually sits at the end (focus / selection).
   const caretAtEndRef = useRef(false);
+
+  // ── undo/redo history (in-session, edit text only) ────────────────────────
+  const historyRef = useRef<HistoryState>(initHistory(value));
+  const applyingHistoryRef = useRef(false); // guards onChange while we apply a snapshot
+  const reportHistory = useCallback(() => {
+    onHistoryChange?.({ canUndo: histCanUndo(historyRef.current), canRedo: histCanRedo(historyRef.current) });
+  }, [onHistoryChange]);
+
+  // seed the baseline when the editor first receives real content (e.g. an entry loads)
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (!seededRef.current && (value.text.length > 0 || value.tokens.length > 0)) {
+      seededRef.current = true;
+      historyRef.current = initHistory(value);
+      reportHistory();
+    }
+  }, [value, reportHistory]);
+
+  const applySnapshot = useCallback(
+    (snap: InputState) => {
+      applyingHistoryRef.current = true;
+      onChange(snap); // updates the editor text (rendered via children)
+      // IMPORTANT: do NOT force `selection` here. This TextInput renders its text via
+      // styled children (for the chips), so a controlled selection forced while the text
+      // shrinks parks the caret on a phantom line past the old layout (iOS). Leave the
+      // caret uncontrolled — the OS clamps it to the end of the restored (shorter) text —
+      // and just sync our internal caret index for trigger detection.
+      const pos = Math.max(0, snap.text.length);
+      caretRef.current = pos;
+      setCaret(pos);
+      reportHistory();
+      setTimeout(() => {
+        applyingHistoryRef.current = false; // resulting onChange (if any) is past the guard
+      }, 0);
+    },
+    [onChange, reportHistory],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      undo: () => {
+        if (!histCanUndo(historyRef.current)) return;
+        historyRef.current = undoHistory(historyRef.current);
+        applySnapshot(histCurrent(historyRef.current));
+      },
+      redo: () => {
+        if (!histCanRedo(historyRef.current)) return;
+        historyRef.current = redoHistory(historyRef.current);
+        applySnapshot(histCurrent(historyRef.current));
+      },
+    }),
+    [applySnapshot],
+  );
+
+  // record every value change into history (unless we're mid-undo/redo)
+  useEffect(() => {
+    if (applyingHistoryRef.current) return;
+    const before = historyRef.current;
+    historyRef.current = pushHistory(before, value);
+    if (historyRef.current !== before) reportHistory();
+  }, [value, reportHistory]);
 
   // When the editor's content grows (a new line pushes it taller) and the user is typing
   // at the end, keep the bottom in view so the toolbar never covers the live caret.
@@ -184,15 +268,25 @@ export function ComposerBody({
   };
 
   const editorChildren = useMemo(() => buildChildren(value), [value]);
+  // never let a forced selection point past the current text — that parks the caret on a
+  // phantom trailing line on iOS (seen during undo).
+  const safeSelection = useMemo(() => {
+    if (!pendingSelection) return undefined;
+    const max = value.text.length;
+    return { start: Math.min(pendingSelection.start, max), end: Math.min(pendingSelection.end, max) };
+  }, [pendingSelection, value.text.length]);
   const TOOLBAR_H = 46; // approx height of the writing toolbar bar
   const PICKER_H = 320; // max height of the @/# picker card (matches its maxHeight)
+  const BREATHING = 120; // comfortable gap so the active line rests above the toolbar, not
+  // jammed against it, when typing near the bottom of a long entry.
   const toolbarBottom = (kb > 0 ? kb : Math.max(insets.bottom, 12)) + 12;
   const pickerBottom = toolbarBottom + 58; // sit above the writing toolbar
   // The ScrollView fills the screen behind the keyboard, so the caret must be able to
   // scroll clear of whatever's floating over it. Normally that's the toolbar; while a
-  // picker is open it's the much taller picker card — reserve for whichever is showing.
+  // picker is open it's the much taller picker card — reserve for whichever is showing,
+  // plus breathing room so the caret never sits right at the very bottom edge.
   const overlayH = trigger ? PICKER_H + 58 : TOOLBAR_H;
-  const scrollPadBottom = toolbarVisible ? toolbarBottom + overlayH + 24 : 40;
+  const scrollPadBottom = toolbarVisible ? toolbarBottom + overlayH + BREATHING : 40;
 
   // when a picker opens (or grows), keep the line you're typing on visible above it
   useEffect(() => {
@@ -218,7 +312,7 @@ export function ComposerBody({
           autoFocus={autoFocus}
           multiline
           onChangeText={onChangeText}
-          selection={pendingSelection}
+          selection={safeSelection}
           onSelectionChange={onSelectionChange}
           onFocus={onFocus}
           onContentSizeChange={maybeScrollToCaret}
@@ -272,7 +366,7 @@ export function ComposerBody({
       )}
     </>
   );
-}
+});
 
 /** Split (text, tokens) into styled <Text> runs: tokens render accent, mono. */
 function buildChildren(state: InputState): React.ReactNode {
